@@ -27,6 +27,8 @@ def cosine(x, y):
     elif norm_x == 0.0 or norm_y == 0.0:
         return 1.0
     else:
-        # FIXME -- why (1 - ...)
         return 1.0 - (result / np.sqrt(norm_x * norm_y))
 
+@numba.njit(fastmath=True)
+def density(x, y):
+    pass

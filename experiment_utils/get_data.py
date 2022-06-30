@@ -1,11 +1,10 @@
-import os, csv
+import os, csv, glob
 import numpy as np
 import os
 from tqdm import tqdm
 from sklearn.datasets import make_swiss_roll
 from mnist import MNIST
-from tensorflow import keras as tfk
-import tensorflow_datasets as tfds
+from PIL import Image
 
 def load_mnist():
     mnist_data_path = os.path.join('data', 'mnist')
@@ -45,19 +44,48 @@ def resample_dim(desired_dim, points):
     points = points[:, :desired_dim]
     return points
 
+def load_coil100_data(directory=None):
+    """
+    This is using the coil100 dataset available on Kaggle at https://www.kaggle.com/datasets/jessicali9530/coil100
+    Using it requires manually unzipping it into a directory
+    """
+    if directory is None:
+        directory = os.path.join('data', 'coil-100')
+    pickled_path = os.path.join(directory, 'pickled_coil.npy')
+    if os.path.exists(pickled_path):
+        dataset = np.load(pickled_path, allow_pickle=True)[()]
+        return dataset['points'], dataset['labels']
+
+    print('Could not find pickled dataset at {}. Loading from png files and pickling...'.format(pickled_path))
+    filelist = glob.glob(os.path.join(directory, '*.png'))
+    if not filelist:
+        raise ValueError('Coil 100 data directory {} is empty!'.format(directory))
+
+    points = np.zeros([7200, 128, 128, 3])
+    labels = np.zeros([7200])
+    for i, fname in enumerate(filelist):
+        image = np.array(Image.open(fname))
+        points[i] = image
+
+        image_name = os.path.split(fname)[-1]
+        # This assumes that your images are named objXY__i.png
+        #   where XY are the class label and i is the picture angle
+        class_label = [int(c) for c in image_name[:5] if c.isdigit()]
+        class_label = np.array(class_label[::-1])
+        digit_powers = np.power(10, np.arange(len(class_label)))
+        class_label = np.sum(class_label * digit_powers)
+        labels[i] = class_label
+
+    points = np.reshape(points, [7200, -1])
+    np.save(pickled_path, {'points': points, 'labels': labels})
+    return points, labels
+
 def get_dataset(data_name, num_points, normalize=True, desired_dim=-1):
     if data_name == 'mnist':
         points, labels = load_mnist()
-    elif data_name == 'fashion_mnist':
-        train, _ = tfk.datasets.fashion_mnist.load_data()
-        points, labels = train
-    elif data_name == 'cifar':
-        train, _ = tfk.datasets.cifar10.load_data()
-        points, labels = train
     elif data_name == 'swiss_roll':
-        num_samples = 50000
-        points, _ = make_swiss_roll(n_samples=num_samples, noise=0.01)
-        labels = np.arange(num_samples)
+        points, _ = make_swiss_roll(n_samples=num_points, noise=0.01)
+        labels = np.arange(num_points)
     elif data_name == 'google_news':
         # To run this dataset, download https://data.world/jaredfern/googlenews-reduced-200-d
         #   and place it into the directory 'data'
@@ -77,44 +105,10 @@ def get_dataset(data_name, num_points, normalize=True, desired_dim=-1):
                 points[i-1, j] = float(element)
         labels = np.ones([num_points])
     elif data_name == 'coil':
-        num_samples = 7200
-        dataset, _ = tfds.load(
-            'coil100',
-            split=['train'],
-            with_info=True
-        )
-        dataset = dataset[0].batch(1)
-        points = np.zeros([num_samples, 128, 128, 3])
-        labels = np.zeros([num_samples])
-        for i, element in enumerate(dataset):
-            points[i] = element['image']
-            labels[i] = element['object_id']
-    elif data_name == 'coil_100':
-            num_samples = 7200
-            dataset, _ = tfds.load(
-                'coil100',
-                split=['train'],
-                with_info=True
-            )
-            dataset = dataset[0].batch(1)
-            points = np.zeros([num_samples, 128, 128, 3])
-            labels = np.zeros([num_samples])
-            for i, element in enumerate(dataset):
-                points[i] = element['image']
-                labels[i] = element['object_id']
+        points, labels = load_coil100_data()
     elif data_name == 'coil_20':
-        file = open(os.path.join('data', 'coil_20.csv'), 'r')
-        reader = csv.reader(file)
-        if num_points < 0:
-            num_points = 1440
-        num_points = min(num_points, 1440)
-        points = np.zeros([num_points,  128*128])
-        for i, line in tqdm(enumerate(reader), total=num_points):
-            if i > num_points:
-                break
-            for j, element in enumerate(line):
-                points[i, j] = float(element)
-        labels = np.ones([num_points])
+        pass
+        # FIXME
     else:
         raise ValueError("Unsupported dataset")
 

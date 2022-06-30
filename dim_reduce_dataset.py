@@ -11,7 +11,7 @@ def get_args():
     parser.add_argument(
         '--dataset',
         choices=['mnist', 'fashion_mnist', 'cifar', 'swiss_roll', 'coil', 'google_news'],
-        default='mnist',
+        default='coil',
         help='Which dataset to apply algorithm to'
     )
     parser.add_argument(

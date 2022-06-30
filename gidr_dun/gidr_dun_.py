@@ -15,8 +15,8 @@ from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import normalize
 from sklearn.neighbors import KDTree
 
-from cuml.neighbors import NearestNeighbors as cuNearestNeighbors
-import cudf
+# from cuml.neighbors import NearestNeighbors as cuNearestNeighbors
+# import cudf
 try:
     import joblib
 except ImportError:
