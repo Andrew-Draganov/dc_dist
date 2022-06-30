@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 from experiment_utils.get_data import get_dataset
 
+from optimizers.pca_opt import PCAOptimizer
+from optimizers.umap_opt import UMAPOptimizer
+
 def distance_metric(points):
     """
     We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
@@ -44,7 +47,7 @@ def distance_metric(points):
 
     # FIXME -- this is slow because the same distance gets handled multiple times.
     #          Should instead do one iteration for each unique pairwise distance
-    for step in tqdm(range(num_points * num_points)):
+    for step in tqdm(range(0, num_points * num_points, 2)):
         i_index = int(argsort_inds[step] / num_points)
         j_index = argsort_inds[step] % num_points
         epsilon = D[i_index, j_index]
@@ -84,34 +87,93 @@ def subsample_points(points, labels, num_classes, points_per_class):
     labels = labels[sample_indices]
     return points, labels
 
-def uniform_line_example():
-    points = np.stack([np.arange(50), np.zeros(50)], axis=1)
+def uniform_line_example(num_points=50):
+    # Points are [1, 2, 3, 4, ...]
+    points = np.expand_dims(np.arange(num_points), -1)
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, [-1])
     plt.hist(pairwise_dists)
     plt.show()
     plt.close()
 
-def linear_growth_example():
-    pass
+def linear_growth_example(num_points=50):
+    points = np.zeros([num_points])
+    # Points are [1, 3, 6, 10, 15, 21, ...]
+    # This is just i * (i + 1) / 2
+    for i in range(num_points):
+        points[i] = (i + 1) * i / 2
+    points = np.expand_dims(points, -1)
+    pairwise_dists = distance_metric(points)
+    pairwise_dists = np.reshape(pairwise_dists, -1)
     plt.hist(pairwise_dists)
     plt.show()
     plt.close()
 
-def coil_example():
+def get_coil_dists():
     points, labels = get_dataset('coil', num_points=-1)
     points, labels = subsample_points(
         points,
         labels,
         num_classes=2,
-        points_per_class=36
+        points_per_class=72
     )
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, [-1])
-    plt.hist(pairwise_dists, bins=50)
-    plt.show()
-    plt.close()
+    return points, labels, pairwise_dists
+
+def coil_histogram(dists, labels=None):
+    if labels is None:
+        plt.hist(dists, bins=50)
+        plt.show()
+        plt.close()
+
+    else:
+        label_agreement = np.expand_dims(labels, 0) == np.expand_dims(labels, 1)
+        label_agreement = np.reshape(label_agreement, -1)
+        intra_class = dists[label_agreement == 1]
+        inter_class = dists[label_agreement == 0]
+        dists_by_class = np.stack([intra_class, inter_class], axis=-1)
+        plt.hist(dists_by_class, bins=50)
+        plt.legend()
+        plt.show()
+        plt.close()
+
 
 if __name__ == '__main__':
+    # Basic line-based examples
     # uniform_line_example()
-    coil_example()
+    # linear_growth_example()
+
+    # Coil-100 examples
+    points, labels, dists = get_coil_dists()
+
+    # Using our distance metric
+    optimizer = UMAPOptimizer(
+        x=points,
+        labels=labels,
+        pairwise_x_mat=np.reshape(dists, [len(labels), len(labels)]),
+        show_intermediate=False,
+        momentum=0.5,
+        min_p_value=0.0
+    )
+    grad_solution = optimizer.optimize()
+    plt.figure(figsize=(16, 6))
+    plt.subplot(1, 2, 1) # row 1, col 2 index 1
+    plt.scatter(grad_solution[:, 0], grad_solution[:, 1], c=labels)
+    plt.title("Using density connected metric")
+
+    # Using the ambient Euclidean metric
+    optimizer = UMAPOptimizer(
+        x=points,
+        labels=labels,
+        show_intermediate=False,
+        momentum=0.5,
+        min_p_value=0.0
+    )
+    grad_solution = optimizer.optimize()
+    plt.subplot(1, 2, 2) # index 2
+    plt.scatter(grad_solution[:, 0], grad_solution[:, 1], c=labels)
+    plt.title("Using traditional Euclidean distance")
+    plt.show()
+    plt.close()
+    # coil_histogram(dists, labels=labels)
