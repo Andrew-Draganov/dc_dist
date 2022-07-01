@@ -68,17 +68,17 @@ def distance_metric(points, stop_criteria=-1):
                             density_connections[i, j] = epsilon
                             density_connections[j, i] = epsilon
                             total_connections += 1
-        if step % 100 == 0:
-            print(total_connections, stop_criteria)
         if total_connections >= stop_criteria:
             break
 
     return density_connections
 
-def subsample_points(points, labels, num_classes, points_per_class):
-    all_classes = np.unique(labels)
-    class_samples = np.random.choice(all_classes, num_classes, replace=False)
-    per_class_samples = [np.where(labels == sampled_class)[0] for sampled_class in class_samples]
+def subsample_points(points, labels, num_classes, points_per_class, class_list=[]):
+    if not class_list:
+        all_classes = np.unique(labels)
+        class_list = np.random.choice(all_classes, num_classes, replace=False)
+
+    per_class_samples = [np.where(labels == sampled_class)[0] for sampled_class in class_list]
     min_per_class = min([len(s) for s in per_class_samples])
     per_class_samples = [s[:min_per_class] for s in per_class_samples]
     sample_indices = np.squeeze(np.stack([per_class_samples], axis=-1))
@@ -93,13 +93,14 @@ def subsample_points(points, labels, num_classes, points_per_class):
     labels = labels[sample_indices]
     return points, labels
 
-def get_dists(dataset):
+def get_dists(dataset, class_list=[], num_classes=2, points_per_class=72):
     points, labels = get_dataset(dataset, num_points=-1)
     points, labels = subsample_points(
         points,
         labels,
-        num_classes=2,
-        points_per_class=75
+        class_list=class_list,
+        num_classes=num_classes,
+        points_per_class=points_per_class
     )
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, [-1])
@@ -179,11 +180,11 @@ if __name__ == '__main__':
     # linear_growth_example()
 
     # Coil-100 examples
-    points, labels, dists = get_dists('coil')
+    points, labels, dists = get_dists('coil', num_classes=2, points_per_class=72)
 
     # MNIST examples
-    # points, labels, dists = get_dists('mnist')
+    # points, labels, dists = get_dists('mnist', class_list=[7, 0], points_per_class=50)
 
-    # umap_plots(points, labels, dists)
+    umap_plots(points, labels, dists)
 
     histogram(dists, labels=labels)
