@@ -1,6 +1,5 @@
 import numpy as np
 from tqdm.auto import tqdm
-from approx_lra.approx_low_rank_matrix import lra, approx_lra
 
 def zero_row_cols(mat, divide_by_n=False):
     # Apply centering matrix on either side
@@ -23,20 +22,12 @@ def get_vecs(array):
     return np.expand_dims(array, 0) - np.expand_dims(array, 1)
 
 # FIXME -- numba njit this!
-def get_gram_mat(data, rank=2, low_rank=True, approx=True):
+def get_gram_mat(data):
     gram_mat = np.sum(
         np.expand_dims(data, 0) * np.expand_dims(data, 1),
         axis=-1
     )
-    if not low_rank:
-        return gram_mat
-
-    n_points = int(data.shape[0])
-    assert 0 < rank <= n_points
-    if approx:
-        return approx_lra(data, k=rank)
-
-    return lra(gram_mat, k=rank)
+    return gram_mat
 
 def get_sq_dist_mat(data):
     dist_mat = np.sum(

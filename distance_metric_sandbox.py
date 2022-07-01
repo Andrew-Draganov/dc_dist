@@ -7,7 +7,7 @@ from experiment_utils.get_data import get_dataset
 from optimizers.pca_opt import PCAOptimizer
 from optimizers.umap_opt import UMAPOptimizer
 
-def distance_metric(points):
+def distance_metric(points, stop_criteria=-1):
     """
     We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
         - P(x_i, x_j) is any path from x_i to x_j
@@ -47,6 +47,10 @@ def distance_metric(points):
 
     # FIXME -- this is slow because the same distance gets handled multiple times.
     #          Should instead do one iteration for each unique pairwise distance
+    max_connections = (num_points ** 2 - num_points) / 2
+    if stop_criteria < 0 or stop_criteria > max_connections:
+        stop_criteria = max_connections
+    total_connections = 0
     for step in tqdm(range(0, num_points * num_points, 2)):
         i_index = int(argsort_inds[step] / num_points)
         j_index = argsort_inds[step] % num_points
@@ -55,7 +59,6 @@ def distance_metric(points):
 
         graph = nx.from_numpy_array(A)
         paths = nx.shortest_path(graph)
-        has_zeros = False
         for i in range(num_points):
             for j in range(i+1, num_points):
                 if density_connections[i, j] == 0:
@@ -64,18 +67,21 @@ def distance_metric(points):
                         if j in paths[i]:
                             density_connections[i, j] = epsilon
                             density_connections[j, i] = epsilon
-        if not has_zeros:
+                            total_connections += 1
+        if step % 100 == 0:
+            print(total_connections, stop_criteria)
+        if total_connections >= stop_criteria:
             break
 
     return density_connections
 
-
 def subsample_points(points, labels, num_classes, points_per_class):
     all_classes = np.unique(labels)
     class_samples = np.random.choice(all_classes, num_classes, replace=False)
-    sample_indices = np.concatenate(
-        [np.where(labels == sampled_class) for sampled_class in class_samples]
-    )
+    per_class_samples = [np.where(labels == sampled_class)[0] for sampled_class in class_samples]
+    min_per_class = min([len(s) for s in per_class_samples])
+    per_class_samples = [s[:min_per_class] for s in per_class_samples]
+    sample_indices = np.squeeze(np.stack([per_class_samples], axis=-1))
     total_points_per_class = int(sample_indices.shape[-1])
     if points_per_class < total_points_per_class:
         stride_rate = float(total_points_per_class) / points_per_class
@@ -86,6 +92,18 @@ def subsample_points(points, labels, num_classes, points_per_class):
     points = points[sample_indices]
     labels = labels[sample_indices]
     return points, labels
+
+def get_dists(dataset):
+    points, labels = get_dataset(dataset, num_points=-1)
+    points, labels = subsample_points(
+        points,
+        labels,
+        num_classes=2,
+        points_per_class=75
+    )
+    pairwise_dists = distance_metric(points)
+    pairwise_dists = np.reshape(pairwise_dists, [-1])
+    return points, labels, pairwise_dists
 
 def uniform_line_example(num_points=50):
     # Points are [1, 2, 3, 4, ...]
@@ -109,19 +127,7 @@ def linear_growth_example(num_points=50):
     plt.show()
     plt.close()
 
-def get_coil_dists():
-    points, labels = get_dataset('coil', num_points=-1)
-    points, labels = subsample_points(
-        points,
-        labels,
-        num_classes=2,
-        points_per_class=72
-    )
-    pairwise_dists = distance_metric(points)
-    pairwise_dists = np.reshape(pairwise_dists, [-1])
-    return points, labels, pairwise_dists
-
-def coil_histogram(dists, labels=None):
+def histogram(dists, labels=None):
     if labels is None:
         plt.hist(dists, bins=50)
         plt.show()
@@ -134,20 +140,10 @@ def coil_histogram(dists, labels=None):
         inter_class = dists[label_agreement == 0]
         dists_by_class = np.stack([intra_class, inter_class], axis=-1)
         plt.hist(dists_by_class, bins=50)
-        plt.legend()
         plt.show()
         plt.close()
 
-
-if __name__ == '__main__':
-    # Basic line-based examples
-    # uniform_line_example()
-    # linear_growth_example()
-
-    # Coil-100 examples
-    points, labels, dists = get_coil_dists()
-
-    # Using our distance metric
+def umap_plots(points, labels, dists):
     optimizer = UMAPOptimizer(
         x=points,
         labels=labels,
@@ -176,4 +172,18 @@ if __name__ == '__main__':
     plt.title("Using traditional Euclidean distance")
     plt.show()
     plt.close()
-    # coil_histogram(dists, labels=labels)
+
+if __name__ == '__main__':
+    # Basic line-based examples
+    # uniform_line_example()
+    # linear_growth_example()
+
+    # Coil-100 examples
+    points, labels, dists = get_dists('coil')
+
+    # MNIST examples
+    # points, labels, dists = get_dists('mnist')
+
+    # umap_plots(points, labels, dists)
+
+    histogram(dists, labels=labels)

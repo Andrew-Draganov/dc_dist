@@ -34,7 +34,6 @@ class UMAPOptimizer(DROptimizer):
         sigmas = np.expand_dims(
             get_sigmas(
                 self.pairwise_x_mat,
-                target=2,
                 num_samples=self.num_sigma_samples
             ),
             -1

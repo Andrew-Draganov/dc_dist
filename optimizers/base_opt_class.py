@@ -10,7 +10,6 @@ class DROptimizer:
         x,
         labels,
         pairwise_x_mat=None,
-        rank=-1,
         dim=2,
         approx=False,
         show_intermediate=False,
@@ -39,10 +38,6 @@ class DROptimizer:
         self.y_init_method = y_init_method
 
         self.set_data(x, labels)
-        if rank < 0:
-            self.rank = self.n_points
-        else:
-            self.rank = rank
 
 
     def set_data(self, x, labels):

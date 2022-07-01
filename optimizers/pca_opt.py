@@ -25,14 +25,8 @@ class PCAOptimizer(DROptimizer):
     def get_pairwise_mat(self, dataset):
         """
         PCA's pairwise matrix is the Gram matrix
-        We add the option to do the low rank approximation of it
         """
-        return get_gram_mat(
-            dataset,
-            rank=self.rank,
-            low_rank=(self.rank > 0 and self.rank != self.n_points),
-            approx=self.approx
-        )
+        return get_gram_mat(dataset)
 
     def high_dim_kernel(self):
         print('Getting high dim kernel matrix...')
