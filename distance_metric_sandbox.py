@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.datasets import make_swiss_roll
 from tqdm.auto import tqdm
 from experiment_utils.get_data import get_dataset
 
@@ -109,6 +110,7 @@ def get_dists(dataset, class_list=[], num_classes=2, points_per_class=72):
 def uniform_line_example(num_points=50):
     # Points are [1, 2, 3, 4, ...]
     points = np.expand_dims(np.arange(num_points), -1)
+    labels = np.arange(num_points)
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, [-1])
     plt.hist(pairwise_dists)
@@ -117,6 +119,7 @@ def uniform_line_example(num_points=50):
 
 def linear_growth_example(num_points=50):
     points = np.zeros([num_points])
+    labels = np.arange(num_points)
     # Points are [1, 3, 6, 10, 15, 21, ...]
     # This is just i * (i + 1) / 2
     for i in range(num_points):
@@ -127,6 +130,16 @@ def linear_growth_example(num_points=50):
     plt.hist(pairwise_dists)
     plt.show()
     plt.close()
+
+def swiss_roll_example(num_points=250):
+    points, _ = make_swiss_roll(n_samples=num_points, noise=0.01)
+    labels = np.arange(num_points)
+    pairwise_dists = distance_metric(points)
+    pairwise_dists = np.reshape(pairwise_dists, -1)
+    plt.hist(pairwise_dists)
+    plt.show()
+    plt.close()
+    umap_plots(points, labels, pairwise_dists)
 
 def histogram(dists, labels=None):
     if labels is None:
@@ -178,13 +191,9 @@ if __name__ == '__main__':
     # Basic line-based examples
     # uniform_line_example()
     # linear_growth_example()
+    swiss_roll_example()
 
-    # Coil-100 examples
-    points, labels, dists = get_dists('coil', num_classes=2, points_per_class=72)
-
-    # MNIST examples
+    # points, labels, dists = get_dists('coil', num_classes=2, points_per_class=72)
     # points, labels, dists = get_dists('mnist', class_list=[7, 0], points_per_class=50)
-
-    umap_plots(points, labels, dists)
-
-    histogram(dists, labels=labels)
+    # umap_plots(points, labels, dists)
+    # histogram(dists, labels=labels)
