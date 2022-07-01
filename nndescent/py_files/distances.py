@@ -8,7 +8,6 @@ import numba
 def euclidean(x, y):
     result = 0.0
     for i in range(x.shape[0]):
-        # ANDREW - fastpow
         result += (x[i] - y[i]) ** 2
     return np.sqrt(result)
 

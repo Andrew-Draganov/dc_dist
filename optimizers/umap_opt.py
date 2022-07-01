@@ -10,7 +10,7 @@ class UMAPOptimizer(DROptimizer):
     def __init__(
         self,
         lr=0.05,
-        n_epochs=500,
+        n_epochs=100,
         use_rhos=True,
         num_sigma_samples=-1,
         min_p_value=0.0,
@@ -26,7 +26,16 @@ class UMAPOptimizer(DROptimizer):
         """
         UMAP's pairwise matrix is the distance matrix
         """
-        return get_sq_dist_mat(dataset)
+        pairwise_mat = np.zeros([self.n_points, self.n_points])
+        for i in range(self.n_points):
+            x = dataset[i]
+            for j in range(i+1, self.n_points):
+                y = dataset[j]
+                dist = np.sqrt(np.sum(np.square(x - y)))
+                pairwise_mat[i, j] = dist
+                pairwise_mat[j, i] = dist
+
+        return pairwise_mat
 
     def high_dim_kernel(self, min_p_value=0.0):
         if self.pairwise_x_mat is None:
