@@ -48,11 +48,7 @@ def distance_metric(points, stop_criteria=-1):
 
     # FIXME -- this is slow because the same distance gets handled multiple times.
     #          Should instead do one iteration for each unique pairwise distance
-    max_connections = (num_points ** 2 - num_points) / 2
-    if stop_criteria < 0 or stop_criteria > max_connections:
-        stop_criteria = max_connections
-    total_connections = 0
-    for step in tqdm(range(0, num_points * num_points, 2)):
+    for step in tqdm(range(num_points * num_points)):
         i_index = int(argsort_inds[step] / num_points)
         j_index = argsort_inds[step] % num_points
         epsilon = D[i_index, j_index]
@@ -60,6 +56,7 @@ def distance_metric(points, stop_criteria=-1):
 
         graph = nx.from_numpy_array(A)
         paths = nx.shortest_path(graph)
+        has_zeros = False
         for i in range(num_points):
             for j in range(i+1, num_points):
                 if density_connections[i, j] == 0:
@@ -68,8 +65,7 @@ def distance_metric(points, stop_criteria=-1):
                         if j in paths[i]:
                             density_connections[i, j] = epsilon
                             density_connections[j, i] = epsilon
-                            total_connections += 1
-        if total_connections >= stop_criteria:
+        if not has_zeros:
             break
 
     return density_connections
@@ -110,12 +106,12 @@ def get_dists(dataset, class_list=[], num_classes=2, points_per_class=72):
 def uniform_line_example(num_points=50):
     # Points are [1, 2, 3, 4, ...]
     points = np.expand_dims(np.arange(num_points), -1)
+    print(points)
     labels = np.arange(num_points)
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, [-1])
-    plt.hist(pairwise_dists)
-    plt.show()
-    plt.close()
+    histogram(pairwise_dists)
+    umap_plots(points, labels, pairwise_dists)
 
 def linear_growth_example(num_points=50):
     points = np.zeros([num_points])
@@ -127,18 +123,15 @@ def linear_growth_example(num_points=50):
     points = np.expand_dims(points, -1)
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, -1)
-    plt.hist(pairwise_dists)
-    plt.show()
-    plt.close()
+    histogram(pairwise_dists)
+    umap_plots(points, labels, pairwise_dists)
 
 def swiss_roll_example(num_points=250):
     points, _ = make_swiss_roll(n_samples=num_points, noise=0.01)
     labels = np.arange(num_points)
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, -1)
-    plt.hist(pairwise_dists)
-    plt.show()
-    plt.close()
+    histogram(pairwise_dists)
     umap_plots(points, labels, pairwise_dists)
 
 def histogram(dists, labels=None):
@@ -189,9 +182,9 @@ def umap_plots(points, labels, dists):
 
 if __name__ == '__main__':
     # Basic line-based examples
-    # uniform_line_example()
+    uniform_line_example()
     # linear_growth_example()
-    swiss_roll_example()
+    # swiss_roll_example()
 
     # points, labels, dists = get_dists('coil', num_classes=2, points_per_class=72)
     # points, labels, dists = get_dists('mnist', class_list=[7, 0], points_per_class=50)
