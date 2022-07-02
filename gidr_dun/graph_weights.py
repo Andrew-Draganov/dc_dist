@@ -6,6 +6,7 @@ import scipy
 
 from . import utils
 from nndescent.py_files.pynndescent_ import NNDescent
+from distance_metric_sandbox import distance_metric
 import nndescent.py_files.distances as pynnd_dist
 
 SMOOTH_K_TOLERANCE = 1e-5
@@ -148,6 +149,9 @@ def nearest_neighbors(
             verbose=verbose,
         )
         knn_indices, knn_dists = knn_search_index.neighbor_graph
+        print(knn_indices[:2])
+        print(knn_dists[:2])
+        quit()
 
     if verbose:
         print(utils.ts(), "Finished Nearest Neighbor Search")

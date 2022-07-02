@@ -1,5 +1,5 @@
-import networkx as nx
 import numpy as np
+from distance_metric import distance_metric
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll
 from tqdm.auto import tqdm
@@ -7,93 +7,6 @@ from experiment_utils.get_data import get_dataset
 
 from optimizers.pca_opt import PCAOptimizer
 from optimizers.umap_opt import UMAPOptimizer
-
-class Component:
-    def __init__(self, nodes, comp_id):
-        self.nodes = set(nodes)
-        self.comp_id = comp_id
-
-def merge_components(c_i, c_j):
-    merged_list = c_i.nodes.union(c_j.nodes)
-    return Component(merged_list, c_i.comp_id)
-
-def get_node_memberships(component_dict, num_points):
-    node_membership = np.zeros([num_points])
-    seen_components = []
-    for i, component in component_dict.items():
-        if component.comp_id not in seen_components:
-            seen_components += [component.comp_id]
-            for node in component.nodes:
-                node_membership[node] = i
-
-    print('num unique components:', len(seen_components))
-    return node_membership
-
-
-def distance_metric(points):
-    """
-    We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
-        - P(x_i, x_j) is any path from x_i to x_j
-        - max(P(x_i, x_j)) is the largest edge weight in the path
-        - min(max(P(x_i, x_j))) is the smallest largest edge weight
-
-    We do this through the following pseudocode:
-    -------------------------------------------
-        Start with:
-            - the pairwise Euclidean distance matrix D
-            - an empty adjacency matrix A
-        Returns:
-            - density-distance matrix C
-
-        for i < n^2:
-            epsilon <- i-th smallest distance in D(X)
-            Put epsilon into A in the same position as it is in D(X)
-            for each pair of points without a density-connected distance x_i, x_j in X:
-                Find the shortest path in A from x_i to x_j
-                If such a path exists, the density-connected distance from x_i to x_j is epsilon
-    """
-    num_points = int(points.shape[0])
-    density_connections = np.zeros([num_points, num_points])
-    D = np.zeros([num_points, num_points])
-
-    for i in range(num_points):
-        x = points[i]
-        for j in range(i+1, num_points):
-            y = points[j]
-            dist = np.sqrt(np.sum(np.square(x - y)))
-            D[i, j] = dist
-            D[j, i] = dist
-
-    flat_D = np.reshape(D, [num_points * num_points])
-    argsort_inds = np.argsort(flat_D)
-
-    num_added = 0
-    component_dict = {i: Component([i], i) for i in range(num_points)}
-    max_comp_size = 1
-    # FIXME -- this is slow because the same distance gets handled multiple times.
-    #          Should instead do one iteration for each unique pairwise distance
-    for step in tqdm(range(num_points * num_points)):
-        # FIXME -- don't need to re-do entire node membership every loop
-        i = int(argsort_inds[step] / num_points)
-        j = argsort_inds[step] % num_points
-        if component_dict[i].comp_id != component_dict[j].comp_id:
-            epsilon = D[i, j]
-            for node_i in component_dict[i].nodes:
-                for node_j in component_dict[j].nodes:
-                    density_connections[node_i, node_j] = epsilon
-                    density_connections[node_j, node_i] = epsilon
-            merged_component = merge_components(component_dict[i], component_dict[j])
-            for node in merged_component.nodes:
-                component_dict[node] = merged_component
-            # component_dict[i] = merged_component
-            # component_dict[j] = merged_component
-            size_of_component = len(component_dict[i].nodes)
-            if size_of_component > max_comp_size:
-                max_comp_size = size_of_component
-        if max_comp_size == num_points:
-            break
-
-    return density_connections
 
 def subsample_points(points, labels, num_classes, points_per_class, class_list=[]):
     if not class_list:
@@ -193,6 +106,8 @@ def umap_plots(points, labels, dists):
     optimizer = UMAPOptimizer(
         x=points,
         labels=labels,
+        n_epochs=100,
+        lr=0.5,
         show_intermediate=False,
         momentum=0.5,
         min_p_value=0.0
@@ -210,7 +125,7 @@ if __name__ == '__main__':
     # linear_growth_example()
     # swiss_roll_example()
 
-    points, labels, dists = get_dists('coil', num_classes=5, points_per_class=72)
-    # points, labels, dists = get_dists('mnist', class_list=[7, 0], points_per_class=60)
+    points, labels, dists = get_dists('coil', num_classes=5, points_per_class=36)
+    # points, labels, dists = get_dists('mnist', class_list=[7, 0], points_per_class=150)
     umap_plots(points, labels, dists)
     histogram(dists, labels=labels)
