@@ -3,15 +3,88 @@ import time
 import numba
 import numpy as np
 import scipy
+from tqdm.auto import tqdm
 
 from . import utils
 from nndescent.py_files.pynndescent_ import NNDescent
-from distance_metric_sandbox import distance_metric
 import nndescent.py_files.distances as pynnd_dist
 
 SMOOTH_K_TOLERANCE = 1e-5
 MIN_K_DIST_SCALE = 1e-3
 NPY_INFINITY = np.inf
+
+class Component:
+    def __init__(self, nodes, comp_id):
+        self.nodes = set(nodes)
+        self.comp_id = comp_id
+
+def merge_components(c_i, c_j):
+    merged_list = c_i.nodes.union(c_j.nodes)
+    return Component(merged_list, c_i.comp_id)
+
+def get_nearest_neighbors(points, n_neighbors):
+    """
+    We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
+        - P(x_i, x_j) is any path from x_i to x_j
+        - max(P(x_i, x_j)) is the largest edge weight in the path
+        - min(max(P(x_i, x_j))) is the smallest largest edge weight
+    """
+    num_points = int(points.shape[0])
+    density_connections = np.zeros([num_points, num_points])
+    D = np.zeros([num_points, num_points])
+
+    for i in tqdm(range(num_points), desc='Making distance matrix...'):
+        x = points[i]
+        for j in range(i+1, num_points):
+            y = points[j]
+            dist = np.sqrt(np.sum(np.square(x - y)))
+            D[i, j] = dist
+            D[j, i] = dist
+
+    flat_D = np.reshape(D, [num_points * num_points])
+    argsort_inds = np.argsort(flat_D)
+
+    num_added = 0
+    component_dict = {i: Component([i], i) for i in range(num_points)}
+    neighbor_dists = [[] for i in range(num_points)]
+    neighbor_inds = [[] for i in range(num_points)]
+    max_comp_size = 1
+    for index in tqdm(argsort_inds):
+        i = int(index / num_points)
+        j = index % num_points
+        if component_dict[i].comp_id != component_dict[j].comp_id:
+            epsilon = D[i, j]
+            for node_i in component_dict[i].nodes:
+                for node_j in component_dict[j].nodes:
+                    density_connections[node_i, node_j] = epsilon
+                    density_connections[node_j, node_i] = epsilon
+                    # If we have space for more neighbors
+                    if len(neighbor_dists[node_i]) < n_neighbors:
+                        neighbor_dists[node_i].append(epsilon)
+                        neighbor_inds[node_i].append(node_j)
+                    # If the current neighbor is equidistant to the other ones
+                    elif np.abs(epsilon - np.max(neighbor_dists[node_i])) < 0.0001:
+                        neighbor_dists[node_i].append(epsilon)
+                        neighbor_inds[node_i].append(node_j)
+                    if len(neighbor_dists[node_j]) < n_neighbors:
+                        neighbor_dists[node_j].append(epsilon)
+                        neighbor_inds[node_j].append(node_i)
+                    elif np.abs(epsilon - np.max(neighbor_dists[node_j])) < 0.0001:
+                        neighbor_dists[node_j].append(epsilon)
+                        neighbor_inds[node_j].append(node_i)
+
+            merged_component = merge_components(component_dict[i], component_dict[j])
+            for node in merged_component.nodes:
+                component_dict[node] = merged_component
+            size_of_component = len(component_dict[i].nodes)
+            if size_of_component > max_comp_size:
+                max_comp_size = size_of_component
+        if max_comp_size == num_points:
+            break
+
+    return neighbor_inds, neighbor_dists
+
+
 
 @numba.njit(
     locals={
@@ -72,8 +145,10 @@ def smooth_knn_dist(
 
                 if d > 0:
                     psum += np.exp(-(d / mid))
-                else:
+                elif d == 0:
                     psum += 1.0
+                else:
+                    continue
 
             if np.fabs(psum - target) < SMOOTH_K_TOLERANCE:
                 break
@@ -116,46 +191,16 @@ def nearest_neighbors(
     if verbose:
         print(utils.ts(), "Finding Nearest Neighbors")
 
-    if metric == "precomputed":
-        # Compute indices of n nearest neighbors
-        knn_indices = utils.fast_knn_indices(X, n_neighbors)
-        # Compute the nearest neighbor distances
-        #   (equivalent to np.sort(X)[:,:n_neighbors])
-        knn_dists = X[np.arange(X.shape[0])[:, None], knn_indices].copy()
-        # Prune any nearest neighbours that are infinite distance apart.
-        disconnected_index = knn_dists == np.inf
-        knn_indices[disconnected_index] = -1
-
-        knn_search_index = None
-    else:
-        # TODO: Hacked values for now
-        n_trees = min(64, 5 + int(round((X.shape[0]) ** 0.5 / 20.0)))
-        n_iters = max(5, int(round(np.log2(X.shape[0]))))
-
-        if euclidean:
-            distance_func = pynnd_dist.euclidean
-        else:
-            distance_func = pynnd_dist.cosine
-
-        knn_search_index = NNDescent(
-            X,
-            n_neighbors=n_neighbors,
-            random_state=random_state,
-            n_trees=n_trees,
-            distance_func=distance_func,
-            n_iters=n_iters,
-            max_candidates=20,
-            n_jobs=num_threads,
-            verbose=verbose,
-        )
-        knn_indices, knn_dists = knn_search_index.neighbor_graph
-        print(knn_indices[:2])
-        print(knn_dists[:2])
-        quit()
-
-    if verbose:
-        print(utils.ts(), "Finished Nearest Neighbor Search")
-    return knn_indices, knn_dists, knn_search_index
+    num_points = len(X)
+    knn_indices, knn_dists = get_nearest_neighbors(X, n_neighbors)
+    max_length = max([len(i) for i in knn_indices])
+    np_indices = np.zeros([num_points, max_length])
+    np_dists = np.zeros([num_points, max_length]) - 1
+    for i in range(num_points):
+        for j in range(len(knn_indices[i])):
+            np_indices[i, j] = knn_indices[i][j]
+            np_dists[i, j] = knn_dists[i][j]
+    return np_indices, np_dists
 
 
 @numba.njit(
@@ -190,7 +235,7 @@ def compute_membership_strengths(
         dists = None
 
     for i in range(n_samples):
-        for j in range(n_neighbors):
+        for j in range(knn_indices.shape[1]):
             if knn_indices[i, j] == -1:
                 continue  # We didn't get the full knn for i
             # If applied to an adjacency matrix points shouldn't be similar to themselves.
@@ -241,7 +286,7 @@ def fuzzy_simplicial_set(
             knn_indices = knn_graph_comp.inds
             knn_dists = knn_graph_comp.vals
         else:
-            knn_indices, knn_dists, _ = nearest_neighbors(
+            knn_indices, knn_dists = nearest_neighbors(
                 X,
                 n_neighbors,
                 metric,

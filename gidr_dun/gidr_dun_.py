@@ -570,7 +570,7 @@ class GidrDun(BaseEstimator):
             self._knn_dists = np.reshape(dists, [X.shape[0], self._n_neighbors])
             self._knn_indices = np.reshape(inds, [X.shape[0], self._n_neighbors])
         else:
-            self._knn_indices, self._knn_dists, self._knn_search_index = graph_weights.nearest_neighbors(
+            self._knn_indices, self._knn_dists = graph_weights.nearest_neighbors(
                 X[index],
                 self._n_neighbors,
                 self.metric,
