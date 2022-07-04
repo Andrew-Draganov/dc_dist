@@ -4,6 +4,8 @@ from experiment_utils.metrics import classifier_accuracy, cluster_quality, clust
 from experiment_utils.general_utils import get_ab, make_plot
 from experiment_utils.get_data import get_dataset
 from experiment_utils.get_algorithm import get_algorithm
+
+import numpy as np
 import argparse
 
 def get_args():
@@ -132,11 +134,34 @@ def get_args():
     args = parser.parse_args()
     return args
 
+
+def subsample_points(points, labels, num_classes, points_per_class, class_list=[]):
+    if not class_list:
+        all_classes = np.unique(labels)
+        class_list = np.random.choice(all_classes, num_classes, replace=False)
+
+    per_class_samples = [np.where(labels == sampled_class)[0] for sampled_class in class_list]
+    min_per_class = min([len(s) for s in per_class_samples])
+    per_class_samples = [s[:min_per_class] for s in per_class_samples]
+    sample_indices = np.squeeze(np.stack([per_class_samples], axis=-1))
+    total_points_per_class = int(sample_indices.shape[-1])
+    if points_per_class < total_points_per_class:
+        stride_rate = float(total_points_per_class) / points_per_class
+        class_subsample_indices = np.arange(0, total_points_per_class, step=stride_rate).astype(np.int32)
+        sample_indices = sample_indices[:, class_subsample_indices]
+
+    sample_indices = np.reshape(sample_indices, -1)
+    points = points[sample_indices]
+    labels = labels[sample_indices]
+    return points, labels
+
+
 if __name__ == '__main__':
     args = get_args()
 
     print('Loading %s dataset...' % args.dataset)
     points, labels = get_dataset(args.dataset, args.num_points)
+    points, labels = subsample_points(points, labels, 20, 72)
     a, b = get_ab(args.tsne_scalars)
     args_dict = vars(args)
     args_dict['a'] = a

@@ -560,27 +560,17 @@ class GidrDun(BaseEstimator):
             print("Constructing nearest neighbor graph...")
 
         start = time.time()
-        # Only run GPU nearest neighbors if the dataset is small enough
-        if self.gpu and X.shape[0] < 100000 and X.shape[1] < 30000:
-            print("doing GPU KNN")
-            knn_cuml = cuNearestNeighbors(n_neighbors=self.n_neighbors)
-            cu_X = cudf.DataFrame(X[index])
-            knn_cuml.fit(cu_X)
-            dists, inds = knn_cuml.kneighbors(X)
-            self._knn_dists = np.reshape(dists, [X.shape[0], self._n_neighbors])
-            self._knn_indices = np.reshape(inds, [X.shape[0], self._n_neighbors])
-        else:
-            self._knn_indices, self._knn_dists = graph_weights.nearest_neighbors(
-                X[index],
-                self._n_neighbors,
-                self.metric,
-                self.euclidean,
-                random_state,
-                self.low_memory,
-                use_pynndescent=True,
-                num_threads=self.num_threads,
-                verbose=True,
-            )
+        self._knn_indices, self._knn_dists = graph_weights.nearest_neighbors(
+            X[index],
+            self._n_neighbors,
+            self.metric,
+            self.euclidean,
+            random_state,
+            self.low_memory,
+            use_pynndescent=True,
+            num_threads=self.num_threads,
+            verbose=True,
+        )
 
         (
             self.graph_,

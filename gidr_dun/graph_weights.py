@@ -63,13 +63,13 @@ def get_nearest_neighbors(points, n_neighbors):
                         neighbor_dists[node_i].append(epsilon)
                         neighbor_inds[node_i].append(node_j)
                     # If the current neighbor is equidistant to the other ones
-                    elif np.abs(epsilon - np.max(neighbor_dists[node_i])) < 0.0001:
+                    elif np.abs(epsilon - neighbor_dists[node_i][-1]) < 0.0001:
                         neighbor_dists[node_i].append(epsilon)
                         neighbor_inds[node_i].append(node_j)
                     if len(neighbor_dists[node_j]) < n_neighbors:
                         neighbor_dists[node_j].append(epsilon)
                         neighbor_inds[node_j].append(node_i)
-                    elif np.abs(epsilon - np.max(neighbor_dists[node_j])) < 0.0001:
+                    elif np.abs(epsilon - neighbor_dists[node_j][-1]) < 0.0001:
                         neighbor_dists[node_j].append(epsilon)
                         neighbor_inds[node_j].append(node_i)
 
@@ -103,13 +103,14 @@ def smooth_knn_dist(
         bandwidth=1.0,
         pseudo_distance=True,
 ):
-    target = np.log2(k) * bandwidth
     rho = np.zeros(distances.shape[0], dtype=np.float32)
     sigmas = np.zeros(distances.shape[0], dtype=np.float32)
 
     mean_distances = np.mean(distances)
 
     for i in range(distances.shape[0]):
+        k = np.count_nonzero(distances[i])
+        target = np.log2(k) * bandwidth
         # ANDREW - Calculate rho values
         ith_distances = distances[i]
         non_zero_dists = ith_distances[ith_distances > 0.0]
@@ -194,7 +195,7 @@ def nearest_neighbors(
     num_points = len(X)
     knn_indices, knn_dists = get_nearest_neighbors(X, n_neighbors)
     max_length = max([len(i) for i in knn_indices])
-    np_indices = np.zeros([num_points, max_length])
+    np_indices = np.zeros([num_points, max_length]) - 1
     np_dists = np.zeros([num_points, max_length]) - 1
     for i in range(num_points):
         for j in range(len(knn_indices[i])):
@@ -278,63 +279,32 @@ def fuzzy_simplicial_set(
         gpu=False,
 ):
     if knn_indices is None or knn_dists is None:
-        if gpu:
-            from cuml.neighbors import NearestNeighbors as cuNearestNeighbors
-            knn_cuml = cuNearestNeighbors(n_neighbors=self.n_neighbors)
-            knn_cuml.fit(points)
-            knn_graph_comp = knn_cuml.kneighbors_graph(points)
-            knn_indices = knn_graph_comp.inds
-            knn_dists = knn_graph_comp.vals
-        else:
-            knn_indices, knn_dists = nearest_neighbors(
-                X,
-                n_neighbors,
-                metric,
-                euclidean,
-                random_state,
-                verbose=verbose,
-            )
+        knn_indices, knn_dists = nearest_neighbors(
+            X,
+            n_neighbors,
+            metric,
+            euclidean,
+            random_state,
+            verbose=verbose,
+        )
     knn_dists = knn_dists.astype(np.float32)
+    n_neighbors = int(knn_dists.shape[1])
 
-    if not gpu:
-        sigmas, rhos = smooth_knn_dist(
-            knn_dists,
-            float(n_neighbors),
-            local_connectivity=float(local_connectivity),
-            pseudo_distance=pseudo_distance,
-        )
+    sigmas, rhos = smooth_knn_dist(
+        knn_dists,
+        float(n_neighbors),
+        local_connectivity=float(local_connectivity),
+        pseudo_distance=pseudo_distance,
+    )
 
-        rows, cols, vals, dists = compute_membership_strengths(
-            knn_indices,
-            knn_dists,
-            sigmas,
-            rhos,
-            return_dists,
-            pseudo_distance=pseudo_distance,
-        )
-    else:
-        from graph_weights_build import graph_weights
-        n_points = int(X.shape[0])
-        sigmas = np.zeros([n_points], dtype=np.float32, order='c')
-        rhos = np.zeros([n_points], dtype=np.float32, order='c')
-        rows = np.zeros([n_points * n_neighbors], dtype=np.int32, order='c')
-        cols = np.zeros([n_points * n_neighbors], dtype=np.int32, order='c')
-        vals = np.zeros([n_points * n_neighbors], dtype=np.float32, order='c')
-        dists = np.zeros([n_points * n_neighbors], dtype=np.float32, order='c')
-        graph_weights(
-            sigmas,
-            rhos,
-            rows,
-            cols,
-            vals,
-            dists,
-            knn_indices.astype(np.int32),
-            knn_dists,
-            int(n_neighbors),
-            int(return_dists),
-            float(local_connectivity),
-            int(pseudo_distance)
-        )
+    rows, cols, vals, dists = compute_membership_strengths(
+        knn_indices,
+        knn_dists,
+        sigmas,
+        rhos,
+        return_dists,
+        pseudo_distance=pseudo_distance,
+    )
 
     result = scipy.sparse.coo_matrix(
         (vals, (rows, cols)), shape=(X.shape[0], X.shape[0])
