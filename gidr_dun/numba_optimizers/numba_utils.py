@@ -75,9 +75,11 @@ def umap_rep_scalar(dist, a, b):
 
 @numba.njit(cache=True, fastmath=True, nogil=True)
 def kernel_function(dist, a, b):
-    if b <= 1:
-        return 1 / (1 + a * pow(dist, b))
-    return pow(dist, b - 1) / (1 + a * pow(dist, b))
+    # return math.log(dist)
+    return dist
+    # if b <= 1:
+    #     return 1 / (1 + a * pow(dist, b))
+    # return pow(dist, b - 1) / (1 + a * pow(dist, b))
 
 
 @numba.njit(cache=True, fastmath=True, nogil=True)

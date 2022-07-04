@@ -85,7 +85,6 @@ def get_nearest_neighbors(points, n_neighbors):
     return neighbor_inds, neighbor_dists
 
 
-
 @numba.njit(
     locals={
         "psum": numba.types.float32,
@@ -131,14 +130,10 @@ def smooth_knn_dist(
         lo = 0.0
         hi = NPY_INFINITY
         mid = 1.0
-        # ANDREW - Calculating sigma values
+        # Calculating sigma values
         for n in range(n_iter):
             psum = 0.0
             for j in range(1, distances.shape[1]):
-                # ANDREW - when adding option for turning UMAP pseudo distance on/off,
-                #   an equivalent change needs to occur here!!
-                # FIXME - this if-statement broke the nndescent_umap_test
-                #       - it appears that it simply rotates the images around?
                 if pseudo_distance:
                     d = distances[i, j] - rho[i]
                 else:
@@ -191,17 +186,36 @@ def nearest_neighbors(
 ):
     if verbose:
         print(utils.ts(), "Finding Nearest Neighbors")
-
     num_points = len(X)
+
+    # Sample n_neighbors nearest neighbors rather than using all of the calculated ones
     knn_indices, knn_dists = get_nearest_neighbors(X, n_neighbors)
-    max_length = max([len(i) for i in knn_indices])
-    np_indices = np.zeros([num_points, max_length]) - 1
-    np_dists = np.zeros([num_points, max_length]) - 1
     for i in range(num_points):
-        for j in range(len(knn_indices[i])):
-            np_indices[i, j] = knn_indices[i][j]
-            np_dists[i, j] = knn_dists[i][j]
+        i_knn_inds = np.array(knn_indices[i])
+        i_knn_dists = np.array(knn_dists[i])
+        subsample_indices = np.random.choice(
+            np.arange(len(i_knn_inds)),
+            size=n_neighbors,
+            replace=False
+        )
+        knn_dists[i] = i_knn_dists[subsample_indices]
+        sort_inds = np.argsort(knn_dists[i])
+        knn_dists[i] = knn_dists[i][sort_inds]
+        knn_indices[i] = i_knn_inds[subsample_indices][sort_inds]
+    np_indices = np.array(knn_indices)
+    np_dists = np.array(knn_dists)
     return np_indices, np_dists
+
+    # # Use all the nearest neighbors that got calculated, even if more than n_neighbors
+    # knn_indices, knn_dists = get_nearest_neighbors(X, n_neighbors)
+    # max_length = max([len(i) for i in knn_indices])
+    # np_indices = np.zeros([num_points, max_length]) - 1
+    # np_dists = np.zeros([num_points, max_length]) - 1
+    # for i in range(num_points):
+    #     for j in range(len(knn_indices[i])):
+    #         np_indices[i, j] = knn_indices[i][j]
+    #         np_dists[i, j] = knn_dists[i][j]
+    # return np_indices, np_dists
 
 
 @numba.njit(
