@@ -53,16 +53,6 @@ def get_args():
         help='If true, subtract rho\'s to calculate the umap pseudo-distance metric'
     )
     parser.add_argument(
-        '--gpu',
-        action='store_true',
-        help='If true, runs optimization on the GPU. Requires that GPU setup has been performed.'
-    )
-    parser.add_argument(
-        '--torch',
-        action='store_true',
-        help='If true, run optimization in pytorch rather than cython/numba/cuda'
-    )
-    parser.add_argument(
         '--num-threads',
         type=int,
         default=-1,
@@ -77,11 +67,6 @@ def get_args():
             'gidr_dun', ],
         default='gidr_dun',
         help='Which embedding optimization algorithm to use'
-    )
-    parser.add_argument(
-        '--numba',
-        action='store_true',
-        help="If present, run under-optimized numba versions of the algorithm. NOTE: not compatible with Barnes-hut TSNE"
     )
     parser.add_argument(
         '--normalized',

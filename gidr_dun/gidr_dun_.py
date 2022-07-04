@@ -68,9 +68,6 @@ def simplicial_set_embedding(
         euclidean,
         sym_attraction,
         frob,
-        numba,
-        torch,
-        gpu,
         num_threads,
         amplify_grads,
         data,
@@ -110,7 +107,7 @@ def simplicial_set_embedding(
 
     graph.eliminate_zeros()
 
-    if random_init or gpu:
+    if random_init:
         embedding = random_state.multivariate_normal(
             mean=np.zeros(n_components), cov=np.eye(n_components), size=(graph.shape[0])
         ).astype(np.float32)
@@ -161,9 +158,6 @@ def simplicial_set_embedding(
         euclidean,
         sym_attraction,
         frob,
-        numba,
-        torch,
-        gpu,
         num_threads,
         amplify_grads,
         embedding,
@@ -191,9 +185,6 @@ def _optimize_layout_euclidean(
         euclidean,
         sym_attraction,
         frob,
-        numba,
-        torch,
-        gpu,
         num_threads,
         amplify_grads,
         head_embedding,
@@ -239,34 +230,15 @@ def _optimize_layout_euclidean(
         'verbose': int(verbose)
     }
     start = time.time()
-    if gpu:
-        if optimize_method != 'gidr_dun':
-            raise ValueError('GPU optimization can only be performed in the gidr_dun setting')
-        from optimize_gpu import gpu_opt_wrapper as optimizer
-    elif torch:
-        if optimize_method != 'gidr_dun':
-            raise ValueError('PyTorch optimization can only be performed in the gidr_dun setting')
-        from .pytorch_optimize import torch_optimize_layout as optimizer
-    elif numba:
-        if optimize_method == 'umap':
-            from .numba_optimizers.umap import optimize_layout_euclidean as optimizer
-        elif optimize_method == 'gidr_dun':
-            from .numba_optimizers.gidr_dun import gidr_dun_numba_wrapper as optimizer
-        else:
-            raise ValueError('Numba optimization only works for umap and gidr_dun')
+    if optimize_method == 'umap':
+        from .numba_optimizers.umap import optimize_layout_euclidean as optimizer
+    elif optimize_method == 'gidr_dun':
+        from .numba_optimizers.gidr_dun import gidr_dun_numba_wrapper as optimizer
     else:
-        if optimize_method == 'umap':
-            from umap_opt import umap_opt_wrapper as optimizer
-        elif optimize_method == 'tsne':
-            from tsne_opt import tsne_opt_wrapper as optimizer
-        elif optimize_method == 'gidr_dun':
-            from gidr_dun_opt import gidr_dun_opt_wrapper as optimizer
-        else:
-            raise ValueError("Optimization method is unsupported at the current time")
+        raise ValueError('Numba optimization only works for umap and gidr_dun')
     embedding = optimizer(**args)
     end = time.time()
     opt_time = end - start
-    # FIXME -- make into logger output
     if verbose:
         print('Optimization took {:.3f} seconds'.format(opt_time))
     return embedding, opt_time
@@ -347,14 +319,11 @@ class GidrDun(BaseEstimator):
             random_init=False,
             pseudo_distance=True,
             tsne_symmetrization=False,
-            optimize_method='umap_sampling',
+            optimize_method='gidr_dun',
             normalized=0,
             euclidean=True,
             sym_attraction=True,
             frob=False,
-            numba=False,
-            torch=False,
-            gpu=False,
             amplify_grads=False,
             min_dist=0.1,
             spread=1.0,
@@ -391,9 +360,6 @@ class GidrDun(BaseEstimator):
         self.euclidean = euclidean
         self.sym_attraction = sym_attraction
         self.frob = frob
-        self.numba = numba
-        self.torch = torch
-        self.gpu = gpu
         self.euclidean = euclidean
         self.amplify_grads = amplify_grads
 
@@ -528,12 +494,11 @@ class GidrDun(BaseEstimator):
         if self.verbose:
             print(str(self))
 
-        if self.numba:
-            self._original_n_threads = numba.get_num_threads()
-            if self.num_threads > 0 and self.num_threads is not None:
-                numba.set_num_threads(self.num_threads)
-            else:
-                self.num_threads = self._original_n_threads
+        self._original_n_threads = numba.get_num_threads()
+        if self.num_threads > 0 and self.num_threads is not None:
+            numba.set_num_threads(self.num_threads)
+        else:
+            self.num_threads = self._original_n_threads
 
         index = list(range(X.shape[0]))
         inverse = list(range(X.shape[0]))
@@ -567,7 +532,6 @@ class GidrDun(BaseEstimator):
             self.euclidean,
             random_state,
             self.low_memory,
-            use_pynndescent=True,
             num_threads=self.num_threads,
             verbose=True,
         )
@@ -589,7 +553,6 @@ class GidrDun(BaseEstimator):
             pseudo_distance=self.pseudo_distance,
             euclidean=self.euclidean,
             tsne_symmetrization=self.tsne_symmetrization,
-            gpu=self.gpu,
         )
         # Report the number of vertices with degree 0 in our our umap.graph_
         # This ensures that they were properly disconnected.
@@ -624,8 +587,7 @@ class GidrDun(BaseEstimator):
         if self.verbose:
             print(utils.ts() + " Finished embedding")
 
-        if self.numba:
-            numba.set_num_threads(self._original_n_threads)
+        numba.set_num_threads(self._original_n_threads)
         self._input_hash = joblib.hash(self._raw_data)
         self.opt_time = opt_time
 
@@ -641,9 +603,6 @@ class GidrDun(BaseEstimator):
             self.euclidean,
             self.sym_attraction,
             self.frob,
-            self.numba,
-            self.torch,
-            self.gpu,
             self.num_threads,
             self.amplify_grads,
             X,

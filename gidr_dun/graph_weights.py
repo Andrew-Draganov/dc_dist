@@ -4,10 +4,9 @@ import numba
 import numpy as np
 import scipy
 from tqdm.auto import tqdm
+from .numba_optimizers.numba_utils import get_dist_matrix
 
 from . import utils
-from nndescent.py_files.pynndescent_ import NNDescent
-import nndescent.py_files.distances as pynnd_dist
 
 SMOOTH_K_TOLERANCE = 1e-5
 MIN_K_DIST_SCALE = 1e-3
@@ -30,16 +29,10 @@ def get_nearest_neighbors(points, n_neighbors):
         - min(max(P(x_i, x_j))) is the smallest largest edge weight
     """
     num_points = int(points.shape[0])
+    dim = int(points.shape[1])
     density_connections = np.zeros([num_points, num_points])
     D = np.zeros([num_points, num_points])
-
-    for i in tqdm(range(num_points), desc='Making distance matrix...'):
-        x = points[i]
-        for j in range(i+1, num_points):
-            y = points[j]
-            dist = np.sqrt(np.sum(np.square(x - y)))
-            D[i, j] = dist
-            D[j, i] = dist
+    D = get_dist_matrix(points, D, dim, num_points)
 
     flat_D = np.reshape(D, [num_points * num_points])
     argsort_inds = np.argsort(flat_D)
@@ -180,7 +173,6 @@ def nearest_neighbors(
         euclidean,
         random_state,
         low_memory=True,
-        use_pynndescent=True,
         num_threads=-1,
         verbose=False,
 ):

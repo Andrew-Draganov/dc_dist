@@ -5,8 +5,8 @@ from sklearn.datasets import make_swiss_roll
 from tqdm.auto import tqdm
 from experiment_utils.get_data import get_dataset
 
-from optimizers.pca_opt import PCAOptimizer
-from optimizers.umap_opt import UMAPOptimizer
+from gidr_dun.gidr_dun_ import GidrDun
+from umap import UMAP
 
 def subsample_points(points, labels, num_classes, points_per_class, class_list=[]):
     if not class_list:
@@ -28,7 +28,7 @@ def subsample_points(points, labels, num_classes, points_per_class, class_list=[
     labels = labels[sample_indices]
     return points, labels
 
-def get_dists(dataset, class_list=[], num_classes=2, points_per_class=72):
+def get_data(dataset, class_list=[], num_classes=2, points_per_class=72):
     points, labels = get_dataset(dataset, num_points=-1)
     points, labels = subsample_points(
         points,
@@ -37,9 +37,7 @@ def get_dists(dataset, class_list=[], num_classes=2, points_per_class=72):
         num_classes=num_classes,
         points_per_class=points_per_class
     )
-    pairwise_dists = distance_metric(points)
-    pairwise_dists = np.reshape(pairwise_dists, [-1])
-    return points, labels, pairwise_dists
+    return points, labels
 
 def uniform_line_example(num_points=50):
     # Points are [1, 2, 3, 4, ...]
@@ -48,7 +46,7 @@ def uniform_line_example(num_points=50):
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, [-1])
     histogram(pairwise_dists)
-    umap_plots(points, labels, pairwise_dists)
+    umap_plots(points, labels, pairwise_dists, s=3)
 
 def linear_growth_example(num_points=50):
     points = np.zeros([num_points])
@@ -61,7 +59,7 @@ def linear_growth_example(num_points=50):
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, -1)
     histogram(pairwise_dists)
-    umap_plots(points, labels, pairwise_dists)
+    umap_plots(points, labels, pairwise_dists, s=3)
 
 def swiss_roll_example(num_points=250):
     points, _ = make_swiss_roll(n_samples=num_points, noise=0.01)
@@ -69,7 +67,7 @@ def swiss_roll_example(num_points=250):
     pairwise_dists = distance_metric(points)
     pairwise_dists = np.reshape(pairwise_dists, -1)
     histogram(pairwise_dists)
-    umap_plots(points, labels, pairwise_dists)
+    umap_plots(points, labels, pairwise_dists, s=1)
 
 def histogram(dists, labels=None):
     if labels is None:
@@ -87,34 +85,19 @@ def histogram(dists, labels=None):
         plt.show()
         plt.close()
 
-def umap_plots(points, labels, dists):
-    optimizer = UMAPOptimizer(
-        x=points,
-        labels=labels,
-        pairwise_x_mat=np.reshape(dists, [len(labels), len(labels)]),
-        show_intermediate=False,
-        momentum=0.5,
-        min_p_value=0.0
-    )
-    grad_solution = optimizer.optimize()
+def umap_plots(points, labels, s=1):
+    dr = GidrDun()
+    projections = dr.fit_transform(points)
     plt.figure(figsize=(16, 6))
     plt.subplot(1, 2, 1) # row 1, col 2 index 1
-    plt.scatter(grad_solution[:, 0], grad_solution[:, 1], c=labels)
+    plt.scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
     plt.title("Using density connected metric")
 
     # Using the ambient Euclidean metric
-    optimizer = UMAPOptimizer(
-        x=points,
-        labels=labels,
-        n_epochs=100,
-        lr=0.5,
-        show_intermediate=False,
-        momentum=0.5,
-        min_p_value=0.0
-    )
-    grad_solution = optimizer.optimize()
+    dr = UMAP()
+    projections = dr.fit_transform(points)
     plt.subplot(1, 2, 2) # index 2
-    plt.scatter(grad_solution[:, 0], grad_solution[:, 1], c=labels)
+    plt.scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
     plt.title("Using traditional Euclidean distance")
     plt.show()
     plt.close()
@@ -125,7 +108,7 @@ if __name__ == '__main__':
     # linear_growth_example()
     # swiss_roll_example()
 
-    points, labels, dists = get_dists('coil', num_classes=5, points_per_class=36)
-    # points, labels, dists = get_dists('mnist', class_list=[7, 0], points_per_class=150)
-    umap_plots(points, labels, dists)
+    points, labels = get_data('coil', class_list=list(range(1, 20)), points_per_class=72)
+    # points, labels = get_data('mnist', class_list=[1, 2, 3, 4, 5], points_per_class=1000)
+    umap_plots(points, labels, s=1)
     histogram(dists, labels=labels)

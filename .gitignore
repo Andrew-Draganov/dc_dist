@@ -21,6 +21,7 @@ cython/cython_files/*.cpp
 *.c
 *.swp
 */*.swp
+__pycache__
 */__pycache__
 data/
 Dimensionality_Reduction_Analysis.egg-info/

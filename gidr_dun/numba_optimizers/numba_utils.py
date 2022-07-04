@@ -42,6 +42,22 @@ def ang_dist(x, y, dim):
         return 1
     return result / math.sqrt(x_len * y_len)
 
+@numba.njit(fastmath=True, parallel=True)
+def get_dist_matrix(points, D, dim, num_points):
+    for i in numba.prange(num_points):
+        x = points[i]
+        for j in range(i+1, num_points):
+            y = points[j]
+            dist = 0
+            for d in range(dim):
+                dist += (x[d] - y[d]) ** 2
+            # FIXME -- square root on distances? Probably no... right?
+            # dist = math.sqrt(dist)
+            D[i, j] = dist
+            D[j, i] = dist
+    return D
+
+
 @numba.njit(cache=True, fastmath=True, nogil=True)
 def get_lr(initial_lr, i_epoch, n_epochs, amplify_grads): 
     if amplify_grads == 1:
@@ -75,11 +91,19 @@ def umap_rep_scalar(dist, a, b):
 
 @numba.njit(cache=True, fastmath=True, nogil=True)
 def kernel_function(dist, a, b):
+    # return dist
+
+    # return math.sqrt(dist)
+
     # return math.log(dist)
-    return dist
-    # if b <= 1:
-    #     return 1 / (1 + a * pow(dist, b))
-    # return pow(dist, b - 1) / (1 + a * pow(dist, b))
+
+    # return 1 / (1 + math.log(dist))
+
+    # return 1 / (1 + math.sqrt(dist))
+
+    if b <= 1:
+        return 1 / (1 + a * pow(dist, b))
+    return pow(dist, b - 1) / (1 + a * pow(dist, b))
 
 
 @numba.njit(cache=True, fastmath=True, nogil=True)
