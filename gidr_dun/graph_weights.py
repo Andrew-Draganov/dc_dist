@@ -56,15 +56,15 @@ def get_nearest_neighbors(points, n_neighbors):
                         neighbor_dists[node_i].append(epsilon)
                         neighbor_inds[node_i].append(node_j)
                     # If the current neighbor is equidistant to the other ones
-                    elif np.abs(epsilon - neighbor_dists[node_i][-1]) < 0.0001:
-                        neighbor_dists[node_i].append(epsilon)
-                        neighbor_inds[node_i].append(node_j)
+                    #elif np.abs(epsilon - neighbor_dists[node_i][-1]) < 0.0001:
+                    #    neighbor_dists[node_i].append(epsilon)
+                    #    neighbor_inds[node_i].append(node_j)
                     if len(neighbor_dists[node_j]) < n_neighbors:
                         neighbor_dists[node_j].append(epsilon)
                         neighbor_inds[node_j].append(node_i)
-                    elif np.abs(epsilon - neighbor_dists[node_j][-1]) < 0.0001:
-                        neighbor_dists[node_j].append(epsilon)
-                        neighbor_inds[node_j].append(node_i)
+                    #elif np.abs(epsilon - neighbor_dists[node_j][-1]) < 0.0001:
+                    #    neighbor_dists[node_j].append(epsilon)
+                    #    neighbor_inds[node_j].append(node_i)
 
             merged_component = merge_components(component_dict[i], component_dict[j])
             for node in merged_component.nodes:
@@ -75,7 +75,7 @@ def get_nearest_neighbors(points, n_neighbors):
         if max_comp_size == num_points:
             break
 
-    return neighbor_inds, neighbor_dists
+    return neighbor_inds, neighbor_dists, density_connections
 
 
 @numba.njit(
@@ -95,6 +95,7 @@ def smooth_knn_dist(
         bandwidth=1.0,
         pseudo_distance=True,
 ):
+    # Not my code -- Andrew
     rho = np.zeros(distances.shape[0], dtype=np.float32)
     sigmas = np.zeros(distances.shape[0], dtype=np.float32)
 
@@ -103,7 +104,7 @@ def smooth_knn_dist(
     for i in range(distances.shape[0]):
         k = np.count_nonzero(distances[i])
         target = np.log2(k) * bandwidth
-        # ANDREW - Calculate rho values
+        # Calculate rho values
         ith_distances = distances[i]
         non_zero_dists = ith_distances[ith_distances > 0.0]
         if non_zero_dists.shape[0] >= local_connectivity:
@@ -172,7 +173,6 @@ def nearest_neighbors(
         metric,
         euclidean,
         random_state,
-        low_memory=True,
         num_threads=-1,
         verbose=False,
 ):
@@ -181,22 +181,22 @@ def nearest_neighbors(
     num_points = len(X)
 
     # Sample n_neighbors nearest neighbors rather than using all of the calculated ones
-    knn_indices, knn_dists = get_nearest_neighbors(X, n_neighbors)
-    for i in range(num_points):
-        i_knn_inds = np.array(knn_indices[i])
-        i_knn_dists = np.array(knn_dists[i])
-        subsample_indices = np.random.choice(
-            np.arange(len(i_knn_inds)),
-            size=n_neighbors,
-            replace=False
-        )
-        knn_dists[i] = i_knn_dists[subsample_indices]
-        sort_inds = np.argsort(knn_dists[i])
-        knn_dists[i] = knn_dists[i][sort_inds]
-        knn_indices[i] = i_knn_inds[subsample_indices][sort_inds]
+    knn_indices, knn_dists, D = get_nearest_neighbors(X, n_neighbors)
+    # for i in range(num_points):
+    #     i_knn_inds = np.array(knn_indices[i])
+    #     i_knn_dists = np.array(knn_dists[i])
+    #     subsample_indices = np.random.choice(
+    #         np.arange(len(i_knn_inds)),
+    #         size=n_neighbors,
+    #         replace=False
+    #     )
+    #     knn_dists[i] = i_knn_dists[subsample_indices]
+    #     sort_inds = np.argsort(knn_dists[i])
+    #     knn_dists[i] = knn_dists[i][sort_inds]
+    #     knn_indices[i] = i_knn_inds[subsample_indices][sort_inds]
     np_indices = np.array(knn_indices)
     np_dists = np.array(knn_dists)
-    return np_indices, np_dists
+    return np_indices, np_dists, np.sqrt(D)
 
     # # Use all the nearest neighbors that got calculated, even if more than n_neighbors
     # knn_indices, knn_dists = get_nearest_neighbors(X, n_neighbors)
@@ -230,6 +230,7 @@ def compute_membership_strengths(
         bipartite=False,
         pseudo_distance=True,
 ):
+    # Not my code -- Andrew
     n_samples = knn_indices.shape[0]
     n_neighbors = knn_indices.shape[1]
 
@@ -276,7 +277,6 @@ def fuzzy_simplicial_set(
         metric,
         knn_indices=None,
         knn_dists=None,
-        local_connectivity=1.0,
         verbose=False,
         return_dists=True,
         pseudo_distance=True,
@@ -284,6 +284,7 @@ def fuzzy_simplicial_set(
         tsne_symmetrization=False,
         gpu=False,
 ):
+    # Not my code -- Andrew
     if knn_indices is None or knn_dists is None:
         knn_indices, knn_dists = nearest_neighbors(
             X,
@@ -299,7 +300,6 @@ def fuzzy_simplicial_set(
     sigmas, rhos = smooth_knn_dist(
         knn_dists,
         float(n_neighbors),
-        local_connectivity=float(local_connectivity),
         pseudo_distance=pseudo_distance,
     )
 
@@ -341,5 +341,3 @@ def fuzzy_simplicial_set(
         dists = None
 
     return result, sigmas, rhos, dists
-
-

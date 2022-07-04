@@ -26,7 +26,6 @@ def gather_gradients(
     weights,
     weight_scalar,
     normalized,
-    angular,
     amplify_grads,
     frob,
     sym_attraction,
@@ -112,7 +111,6 @@ def apply_forces(
 
 def gidr_dun_numba_wrapper(
     normalized,
-    angular,
     sym_attraction,
     frob,
     num_threads,
@@ -172,7 +170,6 @@ def gidr_dun_numba_wrapper(
             weights,
             weight_scalar,
             normalized,
-            angular,
             amplify_grads,
             frob,
             sym_attraction,

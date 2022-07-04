@@ -18,32 +18,6 @@ def load_mnist():
     labels = np.array(labels)
     return points, labels
 
-def upsample_dataset(num_points, points, labels):
-    # If the dataset doesn't have as many points as we want, make copies of the
-    #   dataset until it does
-    # Note -- this is only for timing purposes and resulting embeddings may be bogus
-    assert int(points.shape[0]) == int(labels.shape[0])
-    num_samples = int(points.shape[0])
-    while num_points > num_samples:
-        # add 1 to each dimension of the points when making copies of dataset
-        #   - want to make sure that optimization doesn't get arbitrarily faster
-        #     with identical copies of points
-        points = np.concatenate([points, points+1], axis=0)
-        labels = np.concatenate([labels, labels], axis=0)
-        num_samples = int(points.shape[0])
-        
-    return points, labels
-
-def resample_dim(desired_dim, points):
-    dim = int(points.shape[1])
-    while dim < desired_dim:
-        points = np.concatenate([points, points], axis=-1)
-        dim = int(points.shape[1])
-    random_perm = np.random.permutation(np.arange(dim))
-    points = points[:, random_perm]
-    points = points[:, :desired_dim]
-    return points
-
 def load_coil100_data(directory=None):
     """
     This is using the coil100 dataset available on Kaggle at https://www.kaggle.com/datasets/jessicali9530/coil100
@@ -80,30 +54,46 @@ def load_coil100_data(directory=None):
     np.save(pickled_path, {'points': points, 'labels': labels})
     return points, labels
 
-def get_dataset(data_name, num_points, normalize=True, desired_dim=-1):
+def resample_dim(desired_dim, points):
+    """
+    Up/Down sample to desired dimensionality
+    """
+    dim = int(points.shape[1])
+    while dim < desired_dim:
+        points = np.concatenate([points, points], axis=-1)
+        dim = int(points.shape[1])
+    random_perm = np.random.permutation(np.arange(dim))
+    points = points[:, random_perm]
+    points = points[:, :desired_dim]
+    return points
+
+def subsample_points(points, labels, num_classes, points_per_class, class_list=[]):
+    unique_classes = np.unique(labels)
+    if num_classes > len(unique_classes):
+        raise ValueError('Cannot subsample to {} classes when only have {} available'.format(num_classes, len(unique_classes)))
+    if not class_list:
+        all_classes = np.unique(labels)
+        class_list = np.random.choice(all_classes, num_classes, replace=False)
+
+    per_class_samples = [np.where(labels == sampled_class)[0] for sampled_class in class_list]
+    min_per_class = min([len(s) for s in per_class_samples])
+    per_class_samples = [s[:min_per_class] for s in per_class_samples]
+    sample_indices = np.squeeze(np.stack([per_class_samples], axis=-1))
+    total_points_per_class = int(sample_indices.shape[-1])
+    if points_per_class < total_points_per_class:
+        stride_rate = float(total_points_per_class) / points_per_class
+        class_subsample_indices = np.arange(0, total_points_per_class, step=stride_rate).astype(np.int32)
+        sample_indices = sample_indices[:, class_subsample_indices]
+
+    sample_indices = np.reshape(sample_indices, -1)
+    points = points[sample_indices]
+    labels = labels[sample_indices]
+    return points, labels
+
+
+def get_dataset(data_name, normalize=True, desired_dim=-1, num_classes=2, points_per_class=1000):
     if data_name == 'mnist':
         points, labels = load_mnist()
-    elif data_name == 'swiss_roll':
-        points, _ = make_swiss_roll(n_samples=num_points, noise=0.01)
-        labels = np.arange(num_points)
-    elif data_name == 'google_news':
-        # To run this dataset, download https://data.world/jaredfern/googlenews-reduced-200-d
-        #   and place it into the directory 'data'
-        file = open(os.path.join('data', 'gnews_mod.csv'), 'r', encoding="utf-8")
-        reader = csv.reader(file)
-        if num_points < 0:
-            num_points = 350000
-        num_points = min(num_points, 350000)
-        points = np.zeros([num_points, 200])
-        for i, line in tqdm(enumerate(reader), total=num_points):
-            # First line is column descriptions
-            if i == 0:
-                continue
-            if i > num_points:
-                break
-            for j, element in enumerate(line[1:]): # First column is string text
-                points[i-1, j] = float(element)
-        labels = np.ones([num_points])
     elif data_name == 'coil':
         points, labels = load_coil100_data()
     elif data_name == 'coil_20':
@@ -115,16 +105,10 @@ def get_dataset(data_name, num_points, normalize=True, desired_dim=-1):
     if desired_dim > 0:
         points = resample_dim(desired_dim, points)
 
-    if num_points < 0:
-        num_points = int(points.shape[0])
-    points, labels = upsample_dataset(num_points, points, labels)
-    num_samples = int(points.shape[0])
-    downsample_stride = int(float(num_samples) / num_points)
-    points, labels = points[::downsample_stride], labels[::downsample_stride]
+    points, labels = subsample_points(points, labels, num_classes, points_per_class)
     num_samples = int(points.shape[0])
     points = np.reshape(points, [num_samples, -1])
 
-    # FIXME - do we need this normalization?
     if normalize:
         points = np.array(points) / np.max(points).astype(np.float32)
 

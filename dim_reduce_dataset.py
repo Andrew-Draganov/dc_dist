@@ -12,7 +12,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--dataset',
-        choices=['mnist', 'fashion_mnist', 'cifar', 'swiss_roll', 'coil', 'google_news'],
+        choices=['mnist', 'fashion_mnist', 'cifar', 'coil'],
         default='coil',
         help='Which dataset to apply algorithm to'
     )
@@ -23,9 +23,6 @@ def get_args():
             'original_umap',
             'original_tsne',
             'pca',
-            'kernel_pca',
-            'rapids_umap',
-            'rapids_tsne'
         ],
         default='gidr_dun',
         help='Which algorithm to use for performing dim reduction'
@@ -84,20 +81,21 @@ def get_args():
         help='If true, calculate gradients with respect to frobenius norm rather than KL'
     )
     parser.add_argument(
-        '--angular',
-        action='store_true',
-        help='When present, use cosine similarity metric on high-dimensional points'
-    )
-    parser.add_argument(
         '--tsne-scalars',
         action='store_true',
         help='true => a = b = 1; false => determine a, b'
     )
     parser.add_argument(
-        '--num-points',
+        '--num-classes',
         type=int,
-        default=-1,
-        help='Number of samples to use from the dataset'
+        default=10,
+        help='Number of classes to sample from the dataset'
+    )
+    parser.add_argument(
+        '--points-per-class',
+        type=int,
+        default=500,
+        help='Number of points in each class'
     )
     parser.add_argument(
         '--n-neighbors',
@@ -145,8 +143,11 @@ if __name__ == '__main__':
     args = get_args()
 
     print('Loading %s dataset...' % args.dataset)
-    points, labels = get_dataset(args.dataset, args.num_points)
-    points, labels = subsample_points(points, labels, 20, 72)
+    points, labels = get_dataset(
+        args.dataset,
+        num_classes=args.num_classes,
+        points_per_class=args.points_per_class
+    )
     a, b = get_ab(args.tsne_scalars)
     args_dict = vars(args)
     args_dict['a'] = a
