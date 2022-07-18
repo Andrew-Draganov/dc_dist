@@ -61,6 +61,7 @@ def embedding_plots(points, labels, s=1):
     axes[0, 0].set_title("Using density connected metric UMAP")
 
     # Run TSNE with our density-connected distance metric
+    # TSNE is just the GDR algorithm with normalized set to True :)
     dr = GradientDR(nn_alg=get_nearest_neighbors, normalized=True)
     projections = dr.fit_transform(points)
     axes[0, 1].scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
@@ -85,7 +86,7 @@ def embedding_plots(points, labels, s=1):
     return np.reshape(density_dists, -1)
 
 if __name__ == '__main__':
-    # Basic line-based examples
+    # Trivial examples
     # uniform_line_example()
     # linear_growth_example()
     # swiss_roll_example()
@@ -94,6 +95,4 @@ if __name__ == '__main__':
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
 
     dists = embedding_plots(points, labels, s=1)
-
-    # Histogram with labels only works for 2 classes
     histogram(dists, labels=labels)

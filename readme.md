@@ -6,6 +6,9 @@ the [GDR algorithm](github.com/Andrew-Draganov/GiDR-DUN), which then runs UMAP a
 We then also perform PCA by doing multi-dimensional scaling on the full density-connected distance matrix. These
 are plotted alongside the traditional UMAP output on the same 20 classes of coil-100.
 
+Example image below:
+![Embedding images couldn't be shown](supplementary/embedding_comparison.png "Embedding Comparison")
+
 To run it, simply clone the repo and, in a virtual environment, call `pip install -e .` from the base directory.
 
 You will have to download the coil-100 dataset from [here](https://www.kaggle.com/datasets/jessicali9530/coil100) and unpack it
