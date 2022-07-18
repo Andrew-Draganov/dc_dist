@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # linear_growth_example()
     # swiss_roll_example()
 
-    points, labels = get_dataset('coil', class_list=np.arange(1, 20), points_per_class=72)
+    points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=72)
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
 
     dists = embedding_plots(points, labels, s=1)
