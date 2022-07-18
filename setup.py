@@ -1,26 +1,14 @@
 from setuptools import setup
 
 setup(
-    name='Dimensionality Reduction Analysis',
+    name='DensityDR',
     version='0.1.0',
-    description='A package for evaluating dimensionality reduction algorithms',
+    description='Density-connected dimensionality reduction',
     author='Andrew Draganov',
     author_email='draganovandrew@cs.au.dk',
-    packages=['nndescent'],
-    package_dir={'nndescent': 'nndescent'},
-    extras_require={'pytorch': 'torch'},
     install_requires=[
-        'cython',
-        'matplotlib',
-        'python-mnist',
-        'numpy==1.21',
-        'pandas',
-        'pynndescent',
-        'sklearn',
-        'scipy',
-        'tensorflow', #todo JRJ: changed from ternsorflow-cpu
+        'GradientDR==0.1.3.4',
         'tqdm',
-        'tensorflow_datasets',
-        'umap-learn',
+        'sklearn',
     ],
 )
