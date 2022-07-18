@@ -1,7 +1,7 @@
 import os, csv, glob
 import numpy as np
 import os
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from sklearn.datasets import make_swiss_roll
 from mnist import MNIST
 from PIL import Image
@@ -37,14 +37,14 @@ def load_coil100_data(directory=None):
 
     points = np.zeros([7200, 128, 128, 3])
     labels = np.zeros([7200])
-    for i, fname in enumerate(filelist):
+    for i, fname in tqdm(enumerate(filelist)):
         image = np.array(Image.open(fname))
         points[i] = image
 
         image_name = os.path.split(fname)[-1]
         # This assumes that your images are named objXY__i.png
         #   where XY are the class label and i is the picture angle
-        class_label = [int(c) for c in image_name[:5] if c.isdigit()]
+        class_label = [int(c) for c in image_name[:6] if c.isdigit()]
         class_label = np.array(class_label[::-1])
         digit_powers = np.power(10, np.arange(len(class_label)))
         class_label = np.sum(class_label * digit_powers)
@@ -67,13 +67,12 @@ def resample_dim(desired_dim, points):
     points = points[:, :desired_dim]
     return points
 
-def subsample_points(points, labels, num_classes, points_per_class, class_list=[]):
-    unique_classes = np.unique(labels)
-    if num_classes > len(unique_classes):
-        raise ValueError('Cannot subsample to {} classes when only have {} available'.format(num_classes, len(unique_classes)))
-    if not class_list:
-        all_classes = np.unique(labels)
-        class_list = np.random.choice(all_classes, num_classes, replace=False)
+def subsample_points(points, labels, num_classes, points_per_class, class_list=None):
+    if class_list is None:
+        unique_classes = np.unique(labels)
+        if num_classes > len(unique_classes):
+            raise ValueError('Cannot subsample to {} classes when only have {} available'.format(num_classes, unique_classes.shape[0]))
+        class_list = np.random.choice(unique_classes, num_classes, replace=False)
 
     per_class_samples = [np.where(labels == sampled_class)[0] for sampled_class in class_list]
     min_per_class = min([len(s) for s in per_class_samples])
@@ -91,7 +90,14 @@ def subsample_points(points, labels, num_classes, points_per_class, class_list=[
     return points, labels
 
 
-def get_dataset(data_name, normalize=True, desired_dim=-1, num_classes=2, points_per_class=1000):
+def get_dataset(
+    data_name,
+    normalize=True,
+    desired_dim=-1,
+    num_classes=2,
+    points_per_class=1000,
+    class_list=None
+):
     if data_name == 'mnist':
         points, labels = load_mnist()
     elif data_name == 'coil':
@@ -105,7 +111,13 @@ def get_dataset(data_name, normalize=True, desired_dim=-1, num_classes=2, points
     if desired_dim > 0:
         points = resample_dim(desired_dim, points)
 
-    points, labels = subsample_points(points, labels, num_classes, points_per_class)
+    points, labels = subsample_points(
+        points,
+        labels,
+        num_classes,
+        points_per_class,
+        class_list
+    )
     num_samples = int(points.shape[0])
     points = np.reshape(points, [num_samples, -1])
 
