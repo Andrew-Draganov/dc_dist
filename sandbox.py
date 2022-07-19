@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.datasets import make_swiss_roll
+from sklearn.datasets import make_swiss_roll, make_circles
 from sklearn.manifold import MDS
 
 from experiment_utils.get_data import get_dataset
@@ -11,7 +11,7 @@ def uniform_line_example(num_points=50):
     # Points are [1, 2, 3, 4, ...]
     points = np.expand_dims(np.arange(num_points), -1)
     labels = np.arange(num_points)
-    dists = umap_plots(points, labels, s=10)
+    dists = embedding_plots(points, labels, s=10)
     histogram(dists)
 
 def linear_growth_example(num_points=50):
@@ -22,13 +22,18 @@ def linear_growth_example(num_points=50):
     for i in range(num_points):
         points[i] = (i + 1) * i / 2
     points = np.expand_dims(points, -1)
-    dists = umap_plots(points, labels, s=10)
+    dists = embedding_plots(points, labels, s=10)
     histogram(dists)
 
 def swiss_roll_example(num_points=5000):
     points, _ = make_swiss_roll(n_samples=num_points, noise=0.01)
     labels = np.arange(num_points)
-    dists = umap_plots(points, labels, s=1)
+    dists = embedding_plots(points, labels, s=1)
+    histogram(dists)
+
+def circles_example(num_points=1000):
+    points, labels = make_circles(n_samples=num_points, noise=0.01)
+    dists = embedding_plots(points, labels, s=1)
     histogram(dists)
 
 def histogram(dists, labels=None):
@@ -54,7 +59,7 @@ def embedding_plots(points, labels, s=1):
     plt.setp(axes, xticks=[], yticks=[])
 
     # Run UMAP with our density-connected distance metric
-    dr = GradientDR(nn_alg=get_nearest_neighbors)
+    dr = GradientDR(nn_alg=get_nearest_neighbors, random_init=True)
     projections = dr.fit_transform(points)
     density_dists = dr._all_dists.copy()
     axes[0, 0].scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
@@ -62,7 +67,7 @@ def embedding_plots(points, labels, s=1):
 
     # Run TSNE with our density-connected distance metric
     # TSNE is just the GDR algorithm with normalized set to True :)
-    dr = GradientDR(nn_alg=get_nearest_neighbors, normalized=True)
+    dr = GradientDR(nn_alg=get_nearest_neighbors, normalized=True, random_init=True)
     projections = dr.fit_transform(points)
     axes[0, 1].scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
     axes[0, 1].set_title("Using density connected metric TSNE")
@@ -76,20 +81,22 @@ def embedding_plots(points, labels, s=1):
     axes[1, 0].set_title("Using MDS on density-connected distances")
 
     # What traditional UMAP would give you
-    dr = GradientDR()
+    dr = GradientDR(random_init=True)
     projections = dr.fit_transform(points)
     axes[1, 1].scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
     axes[1, 1].set_title("UMAP with traditional Euclidean distance")
 
     plt.savefig('embedding_comparison.pdf')
+    plt.show()
     plt.close()
     return np.reshape(density_dists, -1)
 
 if __name__ == '__main__':
     # Trivial examples
-    # uniform_line_example()
+    uniform_line_example()
     # linear_growth_example()
     # swiss_roll_example()
+    circles_example()
 
     points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=72)
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
