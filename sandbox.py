@@ -93,10 +93,10 @@ def embedding_plots(points, labels, s=1):
 
 if __name__ == '__main__':
     # Trivial examples
-    uniform_line_example()
+    # uniform_line_example()
     # linear_growth_example()
     # swiss_roll_example()
-    circles_example()
+    # circles_example()
 
     points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=72)
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
