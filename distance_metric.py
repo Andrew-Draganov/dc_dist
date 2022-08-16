@@ -16,7 +16,7 @@ def remove_dense_points(D, min_points):
     D[np.where(sort_inds < min_points)] = 0
     return D
 
-def get_nearest_neighbors(points, n_neighbors, min_points=2, **kwargs):
+def get_nearest_neighbors(points, n_neighbors, min_points=1, **kwargs):
     """
     We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
         - P(x_i, x_j) is any path from x_i to x_j
