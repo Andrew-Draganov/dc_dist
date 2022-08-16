@@ -96,7 +96,7 @@ if __name__ == '__main__':
     # uniform_line_example()
     # linear_growth_example()
     # swiss_roll_example()
-    circles_example()
+    # circles_example()
 
     # points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=72)
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)

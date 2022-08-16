@@ -11,7 +11,12 @@ def merge_components(c_i, c_j):
     merged_list = c_i.nodes.union(c_j.nodes)
     return Component(merged_list, c_i.comp_id)
 
-def get_nearest_neighbors(points, n_neighbors, **kwargs):
+def remove_dense_points(D, min_points):
+    sort_inds = np.argsort(D, axis=1)
+    D[np.where(sort_inds < min_points)] = 0
+    return D
+
+def get_nearest_neighbors(points, n_neighbors, min_points=2, **kwargs):
     """
     We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
         - P(x_i, x_j) is any path from x_i to x_j
@@ -36,6 +41,9 @@ def get_nearest_neighbors(points, n_neighbors, **kwargs):
     density_connections = np.zeros([num_points, num_points])
     D = np.zeros([num_points, num_points])
     D = get_dist_matrix(points, D, dim, num_points)
+
+    if min_points > 1:
+        D = remove_dense_points(D, min_points)
 
     flat_D = np.reshape(D, [num_points * num_points])
     argsort_inds = np.argsort(flat_D)
