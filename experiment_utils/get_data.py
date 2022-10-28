@@ -53,6 +53,17 @@ def load_coil100_data(directory=None):
     points = np.reshape(points, [7200, -1])
     np.save(pickled_path, {'points': points, 'labels': labels})
     return points, labels
+    
+def load_dsnesynth_data(directory=None):
+
+    if directory is None:
+        directory = os.path.join('data', 'synth')
+    file_path = os.path.join(directory, 'synth_data_10400_5_2_1.npy')
+    dataset = np.load(file_path)[()]
+    points = dataset[:,:-1]
+    labels = dataset[:,-1]
+    print(np.unique(labels))
+    return dataset[:,:-1], dataset[:,-1]
 
 def resample_dim(desired_dim, points):
     """
@@ -100,6 +111,8 @@ def get_dataset(
 ):
     if data_name == 'mnist':
         points, labels = load_mnist()
+    elif data_name == 'synth':
+        points, labels = load_dsnesynth_data()
     elif data_name == 'coil':
         points, labels = load_coil100_data()
     elif data_name == 'coil_20':
