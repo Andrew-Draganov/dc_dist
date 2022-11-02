@@ -181,8 +181,13 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
 
 if __name__ == '__main__':
     args = sys.argv
-#n, d, cln, c_reset, min_size, p_noise, domain_size, r_sphere, r_shift, min_subspace,
-#                    num_connections, con_density, seed
+    
+    # seed, number of points (without noise), dimensionality, cluster number
+    # number of noise points (default: 0.2 * points/cln)
+    # cluster sphere point number, cluster sphere size, cluster sphere shift (default: 100,100,100)
+    # number of connections (default: 0), density of connections
+    # minimal number of dimensions for the cluster subspace (default: all dims -> no subspaces)
+
     print(args)
 
     seed = int(args[1])
