@@ -96,10 +96,14 @@ if __name__ == '__main__':
     # uniform_line_example()
     # linear_growth_example()
     # swiss_roll_example()
-    circles_example()
+    #circles_example()
 
-    # points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=72)
-    # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
+    
+    points, labels = get_dataset('synth', num_classes=6, points_per_class=72)
+    #points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=72)
+    #points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
 
-    # dists = embedding_plots(points, labels, s=1)
-    # histogram(dists, labels=labels)
+    print(np.unique(labels))
+    
+    dists = embedding_plots(points, labels, s=1)
+    histogram(dists, labels=labels)
