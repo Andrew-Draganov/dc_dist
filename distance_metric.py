@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from scipy.linalg import expm
 from tqdm.auto import tqdm
 import numba
 
@@ -11,11 +13,6 @@ def merge_components(c_i, c_j):
     merged_list = c_i.nodes.union(c_j.nodes)
     return Component(merged_list, c_i.comp_id)
 
-def remove_dense_points(D, min_points):
-    sort_inds = np.argsort(D, axis=1)
-    D[np.where(sort_inds < min_points)] = 0
-    return D
-
 def get_nearest_neighbors(points, n_neighbors, min_points=1, **kwargs):
     """
     We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
@@ -24,7 +21,7 @@ def get_nearest_neighbors(points, n_neighbors, min_points=1, **kwargs):
         - min(max(P(x_i, x_j))) is the smallest largest edge weight
     """
     @numba.njit(fastmath=True, parallel=True)
-    def get_dist_matrix(points, D, dim, num_points):
+    def get_dist_matrix(points, D, dim, num_points, min_points=1, reach=None):
         for i in numba.prange(num_points):
             x = points[i]
             for j in range(i+1, num_points):
@@ -32,18 +29,29 @@ def get_nearest_neighbors(points, n_neighbors, min_points=1, **kwargs):
                 dist = 0
                 for d in range(dim):
                     dist += (x[d] - y[d]) ** 2
+                dist = np.sqrt(dist)
                 D[i, j] = dist
                 D[j, i] = dist
+
         return D
+        # assert reach_D is not None
+
+        # for i in numba.prange(num_points):
+        #     reach_i = 0
+        #     for j in range(i+1, num_points):
+        #         y = points[j]
+        #         dist = 0
+        #         for d in range(dim):
+        #             dist += (x[d] - y[d]) ** 2
+        #         D[i, j] = dist
+        #         D[j, i] = dist
+
 
     num_points = int(points.shape[0])
     dim = int(points.shape[1])
     density_connections = np.zeros([num_points, num_points])
     D = np.zeros([num_points, num_points])
     D = get_dist_matrix(points, D, dim, num_points)
-
-    if min_points > 1:
-        D = remove_dense_points(D, min_points)
 
     flat_D = np.reshape(D, [num_points * num_points])
     argsort_inds = np.argsort(flat_D)
@@ -85,4 +93,103 @@ def get_nearest_neighbors(points, n_neighbors, min_points=1, **kwargs):
         '_all_dists': np.array(density_connections)
     }
 
+
+class Tree:
+    def __init__(self, dist):
+        self.dist = dist
+        self.left_tree = None
+        self.right_tree = None
+        self.label = None
+        self.point_id = None
+
+    def set_left_tree(self, left):
+        self.left_tree = left
+
+    def set_right_tree(self, right):
+        self.right_tree = right
+
+    def print_tree(self, stack_depth=0):
+        if self.left_tree is not None:
+            self.left_tree.print_tree(stack_depth + 1)
+        print('  ' * stack_depth + str(self.dist))
+        if self.right_tree is not None:
+            self.right_tree.print_tree(stack_depth + 1)
+
+    def __len__(self):
+        total = 0
+        if self.left_tree:
+            total += len(self.left_tree)
+        if self.right_tree:
+            total += len(self.right_tree)
+        return total + 1
+
+def make_tree(all_dists, labels, point_ids):
+    # FIXME -- the right way to do this is to build the tree up while we're connecting the components
+    largest_dist = np.max(all_dists)
+    root = Tree(largest_dist)
+    if largest_dist == 0:
+        root.label = labels[0]
+        root.point_id = point_ids[0]
+        return root
+
+    left_inds = np.where(all_dists[0] == largest_dist)[0]
+    left_split = all_dists[left_inds][:, left_inds]
+    left_labels = labels[left_inds]
+    left_point_ids = point_ids[left_inds]
+    root.set_left_tree(make_tree(left_split, left_labels, left_point_ids))
+
+    right_inds = np.where(all_dists[0] != largest_dist)[0]
+    right_split = all_dists[right_inds][:, right_inds]
+    right_labels = labels[right_inds]
+    right_point_ids = point_ids[right_inds]
+    root.set_right_tree(make_tree(right_split, right_labels, right_point_ids))
+
+    return root
+
+class Point:
+    def __init__(self, coordinates, label, point_id):
+        self.coordinates = coordinates
+        self.label = label
+        self.point_id = point_id
+
+def make_1d_embedding(root, embedding, coordinates):
+    if root.label is not None:
+        return set([Point(coordinates, root.label, root.point_id)])
+
+    left_embedding = make_1d_embedding(root.left_tree, embedding, coordinates)
+    embedding = left_embedding | embedding
+    coordinates = max([e.coordinates for e in embedding])
+
+    right_embedding = make_1d_embedding(root.right_tree, embedding, coordinates+root.dist)
+    embedding = embedding | right_embedding
+
+    return embedding
+
+def make_2d_embedding(root, embedding, coordinates):
+    if root.label is not None:
+        return set([Point(coordinates, root.label, root.point_id)])
+
+    left_embedding = make_1d_embedding(root.left_tree, embedding, coordinate)
+    embedding = left_embedding | embedding
+    coordinate = max([e.coordinates for e in embedding])
+
+    right_embedding = make_1d_embedding(root.right_tree, embedding, coordinate+root.dist)
+    embedding = embedding | right_embedding
+
+    return embedding
+
+def make_dc_embedding(dc_dists, labels):
+    num_points = int(dc_dists.shape[0])
+    point_ids = np.arange(num_points)
+    root = make_tree(np.copy(dc_dists), labels, point_ids)
+
+    embedding = set([])
+    embedding = make_1d_embedding(root, embedding, coordinates=0)
+    # embedding = make_2d_embedding(root, embedding, coordinates=0)
+    point_ids = [e.point_id for e in embedding]
+    sort_inds = np.argsort(point_ids)
+    points = np.array([e.coordinates for e in embedding])[sort_inds]
+    labels = np.array([e.label for e in embedding])[sort_inds]
+    points = np.stack((points, np.zeros_like(points)), axis=-1)
+    return points, labels
 

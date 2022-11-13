@@ -2,9 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll, make_circles
 from sklearn.manifold import MDS
+from sklearn.decomposition import PCA
+import networkx as nx
 
 from experiment_utils.get_data import get_dataset
-from distance_metric import get_nearest_neighbors
+from distance_metric import get_nearest_neighbors, make_dc_embedding
 from GDR import GradientDR
 
 def uniform_line_example(num_points=50):
@@ -51,11 +53,11 @@ def histogram(dists, labels=None):
     plt.savefig('histogram.pdf')
     plt.close()
 
-def embedding_plots(points, labels, s=1):
+def embedding_plots(points, labels, s=5):
     plt.rcParams.update({'font.size': 10})
     fig, axes = plt.subplots(2, 2)
-    fig.set_figheight(6)
-    fig.set_figwidth(10)
+    fig.set_figheight(8)
+    fig.set_figwidth(12)
     plt.setp(axes, xticks=[], yticks=[])
 
     # Run UMAP with our density-connected distance metric
@@ -80,13 +82,12 @@ def embedding_plots(points, labels, s=1):
     axes[1, 0].scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
     axes[1, 0].set_title("Using MDS on density-connected distances")
 
-    # What traditional UMAP would give you
-    dr = GradientDR(random_init=True)
-    projections = dr.fit_transform(points)
-    axes[1, 1].scatter(projections[:, 0], projections[:, 1], c=labels, s=s, alpha=0.8)
-    axes[1, 1].set_title("UMAP with traditional Euclidean distance")
+    # Density-connected preserving embedding
+    points, labels = make_dc_embedding(density_dists, labels)
+    axes[1, 1].scatter(points[:, 0], points[:, 1], c=labels, s=s, alpha=0.8)
+    axes[1, 1].set_title("Density-Connected Preserving Embedding")
 
-    plt.savefig('embedding_comparison.pdf')
+    # plt.savefig('embedding_comparison.pdf')
     plt.show()
     plt.close()
     return np.reshape(density_dists, -1)
@@ -96,10 +97,10 @@ if __name__ == '__main__':
     # uniform_line_example()
     # linear_growth_example()
     # swiss_roll_example()
-    circles_example()
+    # circles_example()
 
-    # points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=72)
+    points, labels = get_dataset('coil', class_list=np.arange(1, 11), points_per_class=10)
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
 
-    # dists = embedding_plots(points, labels, s=1)
+    dists = embedding_plots(points, labels)
     # histogram(dists, labels=labels)
