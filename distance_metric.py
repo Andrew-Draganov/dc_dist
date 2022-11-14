@@ -169,77 +169,40 @@ def make_1d_embedding(root, embedding, coordinates):
     return embedding
 
 
+### 2d-embedding helper functions###
+def connect_clusters(left_embedding, right_embedding, x_or_y, dist, rotate):
+    if rotate:
+        if len(left_embedding) > 1:
+            left_embedding = rotate_embedding(left_embedding)
+        if len(right_embedding) > 1:
+            right_embedding = rotate_embedding(right_embedding)
+        x_or_y = 0
 
-def get_intersection(x0, y0, x1, y1, rad):
-    ### From https://stackoverflow.com/a/55817881/6095482
-    # circle 1: (x0, y0), radius rad
-    # circle 2: (x1, y1), radius rad
+    left_embedding, right_embedding = _point_align_clusters(left_embedding, right_embedding, x_or_y, dist)
 
-    d=math.sqrt((x1-x0)**2 + (y1-y0)**2)
-    
-    # non intersecting
-    if d > 2 * rad:
-        return None
-    # coincident circles
-    if d == 0:
-        return None
-    else:
-        a=(rad**2-rad**2+d**2)/(2*d)
-        h=math.sqrt(rad**2-a**2)
-        x2=x0+a*(x1-x0)/d   
-        y2=y0+a*(y1-y0)/d   
-        x3=x2+h*(y1-y0)/d     
-        y3=y2-h*(x1-x0)/d 
+    # Now both the left and right embeddings have a single point at (0, 0)
+    # So we separate them by the root distance in the left/right or up/down directions
+    for point in right_embedding:
+        point.coordinates[x_or_y] += dist
 
-        x4=x2-h*(y1-y0)/d
-        y4=y2+h*(x1-x0)/d
-        
-        return (x3, y3, x4, y4)
+    embedding = left_embedding | right_embedding
+    return embedding
 
-def get_best_position(good_intersections, mean):
-    closest_dist = -1
-    best_pos = None
-    for intersection in good_intersections:
-        curr_dist = (intersection[0] - mean[0]) ** 2 + (intersection[1] - mean[1]) ** 2
-        if curr_dist < closest_dist or closest_dist < 0:
-            closest_dist = curr_dist
-            best_pos = intersection
+def rotate_embedding(embedding):
+    points = np.array([p.coordinates for p in embedding]).T
+    mean = np.mean(points, axis=1)
+    cov = np.cov(points - np.expand_dims(mean, axis=1))
+    eig_vals, eig_vecs = np.linalg.eig(cov)
+    min_var_direction = eig_vecs[np.argmin(eig_vals)]
+    alpha = np.arctan(min_var_direction[1] / min_var_direction[0])
+    c, s = np.cos(alpha), np.sin(alpha)
+    rot_matrix = np.array([[c, -s], [s, c]]) # Rotates axis of lowest variance onto x-axis
+    for point in embedding:
+        point.coordinates = np.dot(rot_matrix, np.array(point.coordinates).T - mean)
 
-    return best_pos
+    return embedding
 
-def get_dens_preserving_intersections(coordinates, rad):
-    # FIXME -- there must be a smarter way to do this
-    all_intersections = []
-    for i, center_i in enumerate(coordinates):
-        for j, center_j in enumerate(coordinates, i+1):
-            ij_intersections = get_intersection(center_i[0], center_i[1], center_j[0], center_j[1], rad)
-            if ij_intersections is not None:
-                all_intersections.append(ij_intersections[0:2])
-                all_intersections.append(ij_intersections[2:])
-
-    # Check that each intersection is not within rad of another point
-    good_intersections = []
-    for intersection in all_intersections:
-        density_preserving = True
-        for center in coordinates:
-            curr_dist = math.sqrt((intersection[0] - center[0]) ** 2 + (intersection[1] - center[1]) ** 2)
-            if curr_dist < rad:
-                density_preserving = False
-        if density_preserving:
-            good_intersections.append(intersection)
-
-    return good_intersections
-
-def make_2d_embedding(root, depth=0):
-    if root.label is not None:
-        return set([Point([0, 0], root.label, root.point_id)])
-
-    left_embedding = make_2d_embedding(root.left_tree, depth=depth+1)
-    right_embedding = make_2d_embedding(root.right_tree, depth=depth+1)
-
-    # If even depth, separate points left and right (odd is then up and down)
-    x_or_y = depth % 2
-
+def _point_align_clusters(left_embedding, right_embedding, x_or_y, dist):
     # Set left embedding's right-most or top-most point to be at 0
     max_pos = -np.inf
     slide = 0
@@ -262,15 +225,24 @@ def make_2d_embedding(root, depth=0):
         point.coordinates[x_or_y] -= min_pos
         point.coordinates[1 - x_or_y] -= slide
 
-    # Now both the left and right embeddings have a single point at (0, 0)
-    # So we separate them by the root distance in the left/right or up/down directions
-    half_dist = root.dist / 2
-    for point in left_embedding:
-        point.coordinates[x_or_y] -= half_dist
-    for point in right_embedding:
-        point.coordinates[x_or_y] += half_dist
+    return left_embedding, right_embedding
 
-    embedding = left_embedding | right_embedding
+def make_2d_embedding(root, depth=0, rotate=True):
+    if root.label is not None:
+        return set([Point([0, 0], root.label, root.point_id)])
+
+    left_embedding = make_2d_embedding(root.left_tree, depth=depth+1)
+    right_embedding = make_2d_embedding(root.right_tree, depth=depth+1)
+
+    # Even (odd) depth specifies that we connect clusters left-right (up-down)
+    x_or_y = depth % 2
+    embedding = connect_clusters(
+        left_embedding,
+        right_embedding,
+        x_or_y,
+        root.dist,
+        rotate=rotate
+    )
     return embedding
 
 def make_dc_embedding(dc_dists, labels):
@@ -278,15 +250,19 @@ def make_dc_embedding(dc_dists, labels):
     point_ids = np.arange(num_points)
     root = make_tree(np.copy(dc_dists), labels, point_ids)
 
-    embedding = set([])
-    embedding = make_1d_embedding(root, embedding, coordinates=0)
-    # embedding = make_2d_embedding(root)
+    # embedding = set([])
+    # embedding = make_1d_embedding(root, embedding, coordinates=0)
+    embedding = make_2d_embedding(root)
     point_ids = [e.point_id for e in embedding]
     sort_inds = np.argsort(point_ids)
     points = np.array([e.coordinates for e in embedding])[sort_inds]
+    # If 1-d, need to add a second dimension for hardcoded distance and plotting functions
+    # points = np.stack([points, np.zeros_like(points)], axis=1)
     labels = np.array([e.label for e in embedding])[sort_inds]
-    nn_dict = get_nearest_neighbors(points, n_neighbors=15)
-    unique_orig = np.sort(np.unique(dc_dists))
-    unique_new = np.sort(np.unique(nn_dict['_all_dists']))
-    return points, labels
 
+    # Test that embedding preserves density-connectedness
+    # nn_dict = get_nearest_neighbors(points, n_neighbors=15)
+    # unique_orig = np.sort(np.unique(dc_dists))
+    # unique_new = np.sort(np.unique(nn_dict['_all_dists']))
+    # print(np.allclose(unique_orig, unique_new))
+    return points, labels

@@ -99,8 +99,8 @@ if __name__ == '__main__':
     # swiss_roll_example()
     # circles_example()
 
-    points, labels = get_dataset('coil', class_list=np.arange(1, 11), points_per_class=40)
-    # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
+    points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=36)
+    # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
 
     dists = embedding_plots(points, labels)
     # histogram(dists, labels=labels)
