@@ -1,7 +1,9 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import expm
 from tqdm.auto import tqdm
+import itertools
 import numba
 
 class Component:
@@ -153,6 +155,7 @@ class Point:
         self.point_id = point_id
 
 def make_1d_embedding(root, embedding, coordinates):
+    # FIXME -- don't need to pass embedding through. Just need to maintain max coordinate
     if root.label is not None:
         return set([Point(coordinates, root.label, root.point_id)])
 
@@ -165,17 +168,109 @@ def make_1d_embedding(root, embedding, coordinates):
 
     return embedding
 
-def make_2d_embedding(root, embedding, coordinates):
+
+
+def get_intersection(x0, y0, x1, y1, rad):
+    ### From https://stackoverflow.com/a/55817881/6095482
+    # circle 1: (x0, y0), radius rad
+    # circle 2: (x1, y1), radius rad
+
+    d=math.sqrt((x1-x0)**2 + (y1-y0)**2)
+    
+    # non intersecting
+    if d > 2 * rad:
+        return None
+    # coincident circles
+    if d == 0:
+        return None
+    else:
+        a=(rad**2-rad**2+d**2)/(2*d)
+        h=math.sqrt(rad**2-a**2)
+        x2=x0+a*(x1-x0)/d   
+        y2=y0+a*(y1-y0)/d   
+        x3=x2+h*(y1-y0)/d     
+        y3=y2-h*(x1-x0)/d 
+
+        x4=x2-h*(y1-y0)/d
+        y4=y2+h*(x1-x0)/d
+        
+        return (x3, y3, x4, y4)
+
+def get_best_position(good_intersections, mean):
+    closest_dist = -1
+    best_pos = None
+    for intersection in good_intersections:
+        curr_dist = (intersection[0] - mean[0]) ** 2 + (intersection[1] - mean[1]) ** 2
+        if curr_dist < closest_dist or closest_dist < 0:
+            closest_dist = curr_dist
+            best_pos = intersection
+
+    return best_pos
+
+def get_dens_preserving_intersections(coordinates, rad):
+    # FIXME -- there must be a smarter way to do this
+    all_intersections = []
+    for i, center_i in enumerate(coordinates):
+        for j, center_j in enumerate(coordinates, i+1):
+            ij_intersections = get_intersection(center_i[0], center_i[1], center_j[0], center_j[1], rad)
+            if ij_intersections is not None:
+                all_intersections.append(ij_intersections[0:2])
+                all_intersections.append(ij_intersections[2:])
+
+    # Check that each intersection is not within rad of another point
+    good_intersections = []
+    for intersection in all_intersections:
+        density_preserving = True
+        for center in coordinates:
+            curr_dist = math.sqrt((intersection[0] - center[0]) ** 2 + (intersection[1] - center[1]) ** 2)
+            if curr_dist < rad:
+                density_preserving = False
+        if density_preserving:
+            good_intersections.append(intersection)
+
+    return good_intersections
+
+def make_2d_embedding(root, depth=0):
     if root.label is not None:
-        return set([Point(coordinates, root.label, root.point_id)])
+        return set([Point([0, 0], root.label, root.point_id)])
 
-    left_embedding = make_1d_embedding(root.left_tree, embedding, coordinate)
-    embedding = left_embedding | embedding
-    coordinate = max([e.coordinates for e in embedding])
+    left_embedding = make_2d_embedding(root.left_tree, depth=depth+1)
+    right_embedding = make_2d_embedding(root.right_tree, depth=depth+1)
 
-    right_embedding = make_1d_embedding(root.right_tree, embedding, coordinate+root.dist)
-    embedding = embedding | right_embedding
+    # If even depth, separate points left and right (odd is then up and down)
+    x_or_y = depth % 2
 
+    # Set left embedding's right-most or top-most point to be at 0
+    max_pos = -np.inf
+    slide = 0
+    for point in left_embedding:
+        if point.coordinates[x_or_y] > max_pos:
+            max_pos = point.coordinates[x_or_y]
+            slide = point.coordinates[1 - x_or_y]
+    for point in left_embedding:
+        point.coordinates[x_or_y] -= max_pos
+        point.coordinates[1 - x_or_y] -= slide
+
+    # Set right embedding's left-most or bottom-most point to be at 0
+    min_pos = np.inf
+    slide = 0
+    for point in right_embedding:
+        if point.coordinates[x_or_y] < min_pos:
+            min_pos = point.coordinates[x_or_y]
+            slide = point.coordinates[1 - x_or_y]
+    for point in right_embedding:
+        point.coordinates[x_or_y] -= min_pos
+        point.coordinates[1 - x_or_y] -= slide
+
+    # Now both the left and right embeddings have a single point at (0, 0)
+    # So we separate them by the root distance in the left/right or up/down directions
+    half_dist = root.dist / 2
+    for point in left_embedding:
+        point.coordinates[x_or_y] -= half_dist
+    for point in right_embedding:
+        point.coordinates[x_or_y] += half_dist
+
+    embedding = left_embedding | right_embedding
     return embedding
 
 def make_dc_embedding(dc_dists, labels):
@@ -185,11 +280,13 @@ def make_dc_embedding(dc_dists, labels):
 
     embedding = set([])
     embedding = make_1d_embedding(root, embedding, coordinates=0)
-    # embedding = make_2d_embedding(root, embedding, coordinates=0)
+    # embedding = make_2d_embedding(root)
     point_ids = [e.point_id for e in embedding]
     sort_inds = np.argsort(point_ids)
     points = np.array([e.coordinates for e in embedding])[sort_inds]
     labels = np.array([e.label for e in embedding])[sort_inds]
-    points = np.stack((points, np.zeros_like(points)), axis=-1)
+    nn_dict = get_nearest_neighbors(points, n_neighbors=15)
+    unique_orig = np.sort(np.unique(dc_dists))
+    unique_new = np.sort(np.unique(nn_dict['_all_dists']))
     return points, labels
 

@@ -99,7 +99,7 @@ if __name__ == '__main__':
     # swiss_roll_example()
     # circles_example()
 
-    points, labels = get_dataset('coil', class_list=np.arange(1, 11), points_per_class=10)
+    points, labels = get_dataset('coil', class_list=np.arange(1, 11), points_per_class=40)
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
 
     dists = embedding_plots(points, labels)
