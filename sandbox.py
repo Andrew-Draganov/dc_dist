@@ -6,7 +6,8 @@ from sklearn.decomposition import PCA
 import networkx as nx
 
 from experiment_utils.get_data import get_dataset
-from distance_metric import get_nearest_neighbors, make_dc_embedding
+from distance_metric import get_nearest_neighbors
+from density_preserving_embeddings import make_dc_embedding
 from GDR import GradientDR
 
 def uniform_line_example(num_points=50):
@@ -83,7 +84,7 @@ def embedding_plots(points, labels, s=5):
     axes[1, 0].set_title("Using MDS on density-connected distances")
 
     # Density-connected preserving embedding
-    points, labels = make_dc_embedding(density_dists, labels)
+    points, labels = make_dc_embedding(density_dists, labels, embed_dim=1)
     axes[1, 1].scatter(points[:, 0], points[:, 1], c=labels, s=s, alpha=0.8)
     axes[1, 1].set_title("Density-Connected Preserving Embedding")
 
@@ -99,7 +100,7 @@ if __name__ == '__main__':
     # swiss_roll_example()
     # circles_example()
 
-    points, labels = get_dataset('coil', class_list=np.arange(1, 21), points_per_class=36)
+    points, labels = get_dataset('coil', class_list=np.arange(1, 11), points_per_class=72)
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
 
     dists = embedding_plots(points, labels)
