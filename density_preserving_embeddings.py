@@ -128,12 +128,12 @@ def _point_align_clusters(left_embedding, right_embedding, dist):
 
     return left_embedding, right_embedding
 
-def make_embedding(root, rotate=True, depth=0):
+def make_embedding(root, rotate=True):
     if root.label is not None:
         return set([Point([0, 0], root.label, root.point_id)])
 
-    left_embedding = make_embedding(root.left_tree, rotate, depth=depth+1)
-    right_embedding = make_embedding(root.right_tree, rotate, depth=depth+1)
+    left_embedding = make_embedding(root.left_tree, rotate)
+    right_embedding = make_embedding(root.right_tree, rotate)
 
     embedding = connect_clusters(
         left_embedding,
