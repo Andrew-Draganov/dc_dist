@@ -1,5 +1,7 @@
 import numpy as np
 from distance_metric import get_nearest_neighbors
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 class Tree:
     def __init__(self, dist):
@@ -153,12 +155,10 @@ def get_embedding_metadata(embedding):
 
     return points, labels
 
-def assert_correctness(dc_dists, new_points):
+def assert_correctness(dc_dists, points):
     # Test that embedding preserves density-connectedness
     nn_dict = get_nearest_neighbors(points, n_neighbors=15)
-    unique_orig = np.sort(dc_dists)
-    unique_new = np.sort(nn_dict['_all_dists'])
-    assert np.allclose(unique_orig, unique_new)
+    assert np.allclose(dc_dists, nn_dict['_all_dists'])
 
 def make_dc_embedding(dc_dists, labels, embed_dim=2):
     if embed_dim == 1:
@@ -166,12 +166,44 @@ def make_dc_embedding(dc_dists, labels, embed_dim=2):
     else:
         rotate = True
 
-    num_points = int(dc_dists.shape[0])
-    point_ids = np.arange(num_points)
-    # FIXME -- do we need np.copy here?
-    root = make_tree(np.copy(dc_dists), labels, point_ids)
+    point_ids = np.arange(int(dc_dists.shape[0]))
+    root = make_tree(dc_dists, labels, point_ids)
 
     embedding = make_embedding(root, rotate=rotate)
     points, labels = get_embedding_metadata(embedding)
+    nn_dict = get_nearest_neighbors(points, n_neighbors=15)
+    nonzero_inds = np.where(nn_dict['_all_dists'] > 0)
+
+    ratio = dc_dists
+    ratio[nonzero_inds] /= nn_dict['_all_dists'][nonzero_inds]
+
+    plt.imshow(ratio, cmap='hot', interpolation='nearest')
+    plt.show()
+    # assert_correctness(dc_dists, points)
+
+    return points, labels
+
+def analyze_densities(points, labels, min_points=1, embed_dim=2):
+    if embed_dim == 1:
+        rotate = False
+    else:
+        rotate = True
+
+    dc_dists = get_nearest_neighbors(points, n_neighbors=15, min_points=min_points)['_all_dists']
+    point_ids = np.arange(int(dc_dists.shape[0]))
+    root = make_tree(dc_dists, labels, point_ids)
+
+    embedding = make_embedding(root, rotate=rotate)
+    points, labels = get_embedding_metadata(embedding)
+    nn_dict = get_nearest_neighbors(points, n_neighbors=15, min_points=min_points)
+    nonzero_inds = np.where(nn_dict['_all_dists'] > 0)
+
+    ratio = dc_dists
+    ratio[nonzero_inds] /= nn_dict['_all_dists'][nonzero_inds]
+    ratio[nonzero_inds] /= np.mean(ratio[nonzero_inds])
+
+    sns.heatmap(ratio, linewidth=0.0)
+    plt.savefig('min_pts_%d.png' % min_points)
+    # assert_correctness(dc_dists, points)
 
     return points, labels

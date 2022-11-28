@@ -7,7 +7,7 @@ import networkx as nx
 
 from experiment_utils.get_data import get_dataset
 from distance_metric import get_nearest_neighbors
-from density_preserving_embeddings import make_dc_embedding
+from density_preserving_embeddings import make_dc_embedding, analyze_densities
 from GDR import GradientDR
 
 def uniform_line_example(num_points=50):
@@ -84,7 +84,7 @@ def embedding_plots(points, labels, s=5):
     axes[1, 0].set_title("Using MDS on density-connected distances")
 
     # Density-connected preserving embedding
-    points, labels = make_dc_embedding(density_dists, labels, embed_dim=1)
+    points, labels = make_dc_embedding(density_dists, labels, embed_dim=2)
     axes[1, 1].scatter(points[:, 0], points[:, 1], c=labels, s=s, alpha=0.8)
     axes[1, 1].set_title("Density-Connected Preserving Embedding")
 
@@ -94,6 +94,17 @@ def embedding_plots(points, labels, s=5):
     return np.reshape(density_dists, -1)
 
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--min-pts',
+        type=int,
+        default=-1,
+        help='Min points parameter to use for density-connectedness'
+    )
+    args = parser.parse_args()
+
+
     # Trivial examples
     # uniform_line_example()
     # linear_growth_example()
@@ -102,6 +113,7 @@ if __name__ == '__main__':
 
     points, labels = get_dataset('coil', class_list=np.arange(1, 11), points_per_class=72)
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
+    analyze_densities(points, labels, min_points=args.min_pts)
 
-    dists = embedding_plots(points, labels)
+    # dists = embedding_plots(points, labels)
     # histogram(dists, labels=labels)

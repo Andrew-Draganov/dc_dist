@@ -15,7 +15,7 @@ def merge_components(c_i, c_j):
     merged_list = c_i.nodes.union(c_j.nodes)
     return Component(merged_list, c_i.comp_id)
 
-def get_nearest_neighbors(points, n_neighbors, min_points=1, **kwargs):
+def get_nearest_neighbors(points, n_neighbors, min_points=5, **kwargs):
     """
     We define the distance from x_i to x_j as min(max(P(x_i, x_j))), where 
         - P(x_i, x_j) is any path from x_i to x_j
