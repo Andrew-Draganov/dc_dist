@@ -5,6 +5,7 @@ import math
 import sys
 import os
 
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -12,6 +13,8 @@ def set_seed(i):
     np.random.seed(i)
 
 def random_ball_num(center, radius, d, n, clunum):
+    d = int(d)
+    n = int(n)
     u = np.random.normal(0,1,(n,d+1))  # an array of d normally distributed random variables
     norm=np.sqrt(np.sum(u**2,1))
     r = np.random.random(n)**(1.0/d)
@@ -30,6 +33,36 @@ def random_ball_num_noclu(center, radius, d, n):
     x = center + x*radius
     return x
 
+def tooclose (pos, points, mindist, d):
+    #if (len(points) > 0):
+    #    points = points[0]
+    for x in points:
+        dist = 0
+        for i in range(d):
+            dist += (x[i] - pos[i]) ** 2
+            if dist **0.5 > mindist:
+                break
+        if dist **0.5 < mindist:
+            return True
+    return False
+
+def getclosest (pos, points, startdist, d):
+    #if (len(points) > 0):
+    #    points = points[0]
+    mindist = startdist
+    minj = 0
+    for j in range(len(points)):
+        x = points[j]
+        dist = 0
+        for i in range(d):
+            dist += (x[i] - pos[i]) ** 2
+            if dist **0.5 > mindist:
+                break
+        if dist **0.5 < mindist:
+            mindist = dist ** 0.5
+            minj = j
+            
+    return minj
 
 def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_subspace,
                     num_connections, con_density, seed):
@@ -40,6 +73,7 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
     nonoise = n - num_noise
     clunum = 1
 
+    center_store_other = []
     while (True):
         restarts = np.ceil(np.sort(np.random.random(cln) * nonoise)).astype('int32')
         dist = 0
@@ -56,40 +90,100 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
                 break
         if not newrun:
             break
+            
+    center_store_new = [pos]
+    center_clunum = [clunum-1]
+    print(clunum)
 
     # print(restarts)
 
     nextCluster = False
-
+    
+    corecounter = 0
+    startpos = pos
+    
     while datanum < nonoise:
+        corecounter = corecounter + 1
         c_rand_reset = np.ceil(np.random.normal(c_reset, 2, 1)).astype('int32')
-        runlength = max(min(c_rand_reset[0], nonoise - datanum), c_reset / 10)
-
-        if (runlength >= restarts[clunum - 1] - datanum and clunum <= cln - 1):
-            runlength = restarts[clunum - 1] - datanum
+        runlength = max(min(c_rand_reset[0], nonoise-datanum), c_reset/10)
+        
+        if (runlength >= restarts[clunum-1] - datanum and clunum <= cln-1):
+            runlength = restarts[clunum-1] - datanum
             nextCluster = True
-
-        # print(runlength)
-
-        data_new = random_ball_num(pos, r_sphere, d, runlength, clunum - 1)
+        
+        #print(runlength)
+        data_new = random_ball_num(pos, r_sphere, d, runlength, clunum-1)
         data.extend(data_new.tolist())
         datanum = datanum + runlength
-
+            
         if (nextCluster):
+            center_store_other.extend(center_store_new)
+            center_clunum.append(clunum-1)
             clunum += 1
-            pos = np.random.random(d) * domain_size
             nextCluster = False
+            #print(center_store_new)
+            #print(center_store_other)
+            center_store_new = [pos]
+            startpos = pos
+            print(clunum)
+            pos = np.random.random(d)*domain_size
+            attempts = 0
+            while(tooclose(pos, center_store_other, (r_sphere*4), d)):
+                if (attempts > 100):
+                    domain_size = domain_size + r_sphere*2
+                    attempts = 0
+                    print("expand domain size")
+                pos = np.random.random(d)*domain_size
+                attempts = attempts + 1
+
+                
+
+                        
         else:
+            #print("Center_store")
+            #print(center_store_new)
+            #print("add pos")
+            center_store_new.append(pos)
+            center_clunum.append(clunum-1)
+            #print(center_store_new)
             shift_dir = np.random.random(d) - 0.5
-            pos = pos + (shift_dir / (np.sum(shift_dir ** 2) ** (0.5)) * np.random.normal(r_shift, 2, 1))
+            pos_old = pos
+            pos = pos_old + (shift_dir/(np.sum((shift_dir*2)**2) **(0.5))*np.random.normal(r_shift, 2, 1))
+            attempts = 0
+            while(tooclose(pos, center_store_other, (r_sphere*2.5), d)):
+                if (attempts > 100):
+                    pos_old = startpos
+                    attempts = 0
+                    print("reset to startpos")
+                #print("tooclose")
+                shift_dir = np.random.random(d) - 0.5
+                pos = pos_old + (shift_dir/(np.sum(shift_dir**2) **(0.5))*np.random.normal(r_shift, 2, 1))
+                attempts = attempts + 1
 
     data = np.array(data)
-
+    #print(center_store_other)
+    center_store_other.extend(center_store_new)
+    #print("Centers")
+    #print(center_clunum)
+    #print(data)
+    #for x in center_store_other:
+    #    print(x)
+        
+    #print(corecounter)
+    #print(len(center_store_other))
+    #print(len(center_clunum))
+    
+    #print(len(np.array(center_store_other)))
+    #print(np.array(center_store_other))
     print("Data generated")
 
+    center_store_other_shift = np.array(center_store_other)
+    
     maxdata = []
     for i in range(d):
-        data[:, i] = data[:, i] - np.min(data[:, i])
+        minimal = np.min(data[:, i])
+        data[:, i] = data[:, i] - minimal
+        center_store_other_shift[:, i] = center_store_other_shift[:,i] - minimal
     noise = np.random.random([n - nonoise, d + 1])
     for i in range(d):
         maxdata.append(np.max(data[:, i]))
@@ -111,25 +205,18 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
 
     print("Subspaces applied")
 
-    r_outlier = (2 * r_shift) ** 2
+    r_outlier = r_sphere
+    
     for n in noise:
-        for x in data:
-            dist = 0
-            for i in range(d):
-                dist += (x[i] - n[i]) ** 2
-                if dist > r_outlier:
-                    break
-            if dist < r_outlier:
-                n[-1] = x[-1]
-                # print(n[-1])
-                break
-
+        if (tooclose(n, center_store_other_shift, r_outlier*1.5, d)):
+            closestcore = getclosest(n, center_store_other_shift, r_outlier*2, d)
+            n[-1] = center_clunum[closestcore]
+    
     data_main = data.tolist()
     data_main.extend(noise.tolist())
     data_main = np.array(data_main)
 
     print("Outliers generated")
-
     conpoints = []
     for i in range(num_connections):
         curconpoints = []
@@ -177,7 +264,7 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
     data_final.extend(conpoints_array.tolist())
     data_final = np.array(data_final)
 
-    return data_final
+    return data_final, center_store_other_shift
 
 if __name__ == '__main__':
     args = sys.argv
@@ -193,15 +280,15 @@ if __name__ == '__main__':
     seed = int(args[1])
     c_reset = 100
     r_sphere = 100
-    r_shift = 100
     num_con = 0
     den_con = 1
     num_nonoise = int(args[2])
 
     dim = int(args[3])
     cln = int(args[4])
+    r_shift = dim * 50
 
-    num_noise = int (math.ceil(0.2 * num_nonoise / cln))
+    num_noise = int (math.ceil(0.001 * num_nonoise))
     min_sub = dim
 
     if (len(args) > 5):
@@ -224,21 +311,21 @@ if __name__ == '__main__':
     min_size = int(math.ceil(num_nonoise / cln**2))
 
     num = num_nonoise + num_noise
-    domain_size = 10000
+    domain_size = 1000
 
-    synthdata = spreader_improv(num, dim, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_sub, num_con, den_con, seed)
-
-    #color = plt.cm.rainbow(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
+    synthdata, centers = spreader_improv(num, dim, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_sub, num_con, den_con, seed)
     path = "data/synth"
     filename = "synth_data_" + str(num) + "_" + str(cln) + "_" + str(dim) + "_" + str(seed) + ".npy"
     np.save(os.path.join(path, filename), synthdata)
 
-
+    color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
     #print(color[x3[:,2].astype('int32')])
 
-    #plt.figure(figsize=(10,10))
-    #plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.1)
-    #plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
-    #plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
+    plt.figure(figsize=(15,15))
+    plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.4)
+    plt.scatter(centers[:,0], centers[:,1], c='black', alpha=1)
 
-    #plt.show()
+    plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
+    plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
+
+    plt.show()
