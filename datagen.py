@@ -270,8 +270,8 @@ if __name__ == '__main__':
     args = sys.argv
     
     # seed, number of points (without noise), dimensionality, cluster number
-    # number of noise points (default: 0.2 * points/cln)
-    # cluster sphere point number, cluster sphere size, cluster sphere shift (default: 100,100,100)
+    # number of noise points (default: 0.001 * points)
+    # cluster sphere point number, cluster sphere size, cluster sphere shift (default: 100,100, 100)
     # number of connections (default: 0), density of connections
     # minimal number of dimensions for the cluster subspace (default: all dims -> no subspaces)
 
@@ -286,7 +286,7 @@ if __name__ == '__main__':
 
     dim = int(args[3])
     cln = int(args[4])
-    r_shift = dim * 50
+    r_shift = 100
 
     num_noise = int (math.ceil(0.001 * num_nonoise))
     min_sub = dim
@@ -312,7 +312,6 @@ if __name__ == '__main__':
 
     num = num_nonoise + num_noise
     domain_size = 1000
-
     synthdata, centers = spreader_improv(num, dim, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_sub, num_con, den_con, seed)
     path = "data/synth"
     filename = "synth_data_" + str(num) + "_" + str(cln) + "_" + str(dim) + "_" + str(seed) + ".npy"
@@ -321,11 +320,11 @@ if __name__ == '__main__':
     color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
     #print(color[x3[:,2].astype('int32')])
 
-    plt.figure(figsize=(15,15))
-    plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.4)
-    plt.scatter(centers[:,0], centers[:,1], c='black', alpha=1)
+    #plt.figure(figsize=(15,15))
+    #plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.4)
+    #plt.scatter(centers[:,0], centers[:,1], c='black', alpha=1)
 
-    plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
-    plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
+    #plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
+    #plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
 
-    plt.show()
+    #plt.show()
