@@ -1,15 +1,17 @@
 import numpy as np
 from distance_metric import get_nearest_neighbors
+from tree_plotting import plot_tree
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 class Tree:
     def __init__(self, dist):
         self.dist = dist
+        self.children = []
         self.left_tree = None
         self.right_tree = None
         self.label = None
         self.point_id = None
+        self.path = ''
 
     def set_left_tree(self, left):
         self.left_tree = left
@@ -25,41 +27,42 @@ class Tree:
             self.right_tree.print_tree(stack_depth + 1)
 
     def __len__(self):
-        total = 0
-        if self.left_tree:
-            total += len(self.left_tree)
-        if self.right_tree:
-            total += len(self.right_tree)
-        return total + 1
+        return len(self.children)
 
 class Point:
     def __init__(self, coordinates, label, point_id):
-        self.coordinates = coordinates
+        self.coordinates = np.array(coordinates, dtype=np.float32)
         self.label = label
         self.point_id = point_id
 
-
-
-def make_tree(all_dists, labels, point_ids):
+def _make_tree(all_dists, labels, point_ids, path=''):
     # FIXME -- the right way to do this is to build the tree up while we're connecting the components
     largest_dist = np.max(all_dists)
     root = Tree(largest_dist)
+    # FIXME -- this will break if multiple copies of the same point. Need to first check for equal points
     if largest_dist == 0:
         root.label = labels[0]
         root.point_id = point_ids[0]
+        root.path = path
         return root
 
     left_inds = np.where(all_dists[0] == largest_dist)[0]
     left_split = all_dists[left_inds][:, left_inds]
-    left_labels = labels[left_inds]
-    left_point_ids = point_ids[left_inds]
-    root.set_left_tree(make_tree(left_split, left_labels, left_point_ids))
+    left_labels, left_point_ids = labels[left_inds], point_ids[left_inds]
+    root.set_left_tree(_make_tree(left_split, left_labels, left_point_ids, path=path + 'l'))
+    if root.left_tree.label is not None:
+        root.children += [root.left_tree]
+    else:
+        root.children += root.left_tree.children
 
     right_inds = np.where(all_dists[0] != largest_dist)[0]
     right_split = all_dists[right_inds][:, right_inds]
-    right_labels = labels[right_inds]
-    right_point_ids = point_ids[right_inds]
-    root.set_right_tree(make_tree(right_split, right_labels, right_point_ids))
+    right_labels, right_point_ids = labels[right_inds], point_ids[right_inds]
+    root.set_right_tree(_make_tree(right_split, right_labels, right_point_ids, path=path + 'r'))
+    if root.right_tree.label is not None:
+        root.children += [root.right_tree]
+    else:
+        root.children += root.right_tree.children
 
     return root
 
@@ -107,29 +110,22 @@ def _point_align_clusters(left_embedding, right_embedding, dist):
     Lastly, move them apart by the necessary distance along x-axis.
     """
     # Set left embedding's right-most or top-most point to be at 0
-    max_pos = -np.inf
-    slide = 0
+    max_pos = np.array([-np.inf, 0])
     for point in left_embedding:
-        if point.coordinates[0] > max_pos:
-            max_pos = point.coordinates[0]
-            slide = point.coordinates[1]
+        if point.coordinates[0] > max_pos[0]:
+            max_pos = np.array(point.coordinates)
     for point in left_embedding:
-        point.coordinates[0] -= max_pos
-        point.coordinates[1] -= slide
+        point.coordinates -= max_pos
 
     # Set right embedding's left-most or bottom-most point to be at 0
-    min_pos = np.inf
-    slide = 0
+    min_pos = np.array([np.inf, 0])
     for point in right_embedding:
-        if point.coordinates[0] < min_pos:
-            min_pos = point.coordinates[0]
-            slide = point.coordinates[1]
+        if point.coordinates[0] < min_pos[0]:
+            min_pos = np.array(point.coordinates)
     for point in right_embedding:
-        point.coordinates[0] -= min_pos
-        point.coordinates[1] -= slide
+        point.coordinates -= min_pos
 
     return left_embedding, right_embedding
-
 def make_embedding(root, rotate=True):
     if root.label is not None:
         return set([Point([0, 0], root.label, root.point_id)])
@@ -151,59 +147,50 @@ def get_embedding_metadata(embedding):
     points = np.array([e.coordinates for e in embedding])[sort_inds]
     if len(points.shape) == 1:
         points = np.stack([points, np.zeros_like(points)], axis=1)
-    labels = np.array([e.label for e in embedding])[sort_inds]
 
-    return points, labels
+    return points
 
-def assert_correctness(dc_dists, points):
+def assert_correctness(dc_dists, embedding, n_neighbors=15, min_points=1):
     # Test that embedding preserves density-connectedness
-    nn_dict = get_nearest_neighbors(points, n_neighbors=15)
-    assert np.allclose(dc_dists, nn_dict['_all_dists'])
+    nn_dict = get_nearest_neighbors(embedding, n_neighbors=n_neighbors, min_points=1)
+    np.testing.assert_allclose(dc_dists, nn_dict['_all_dists'])
 
-def make_dc_embedding(dc_dists, labels, embed_dim=2):
-    if embed_dim == 1:
-        rotate = False
-    else:
-        rotate = True
+def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=True, point_ids=None):
+    dc_dists = get_nearest_neighbors(\
+        points,
+        n_neighbors=n_neighbors,
+        min_points=min_points
+    )['_all_dists']
+    np.set_printoptions(threshold=np.inf)
 
-    point_ids = np.arange(int(dc_dists.shape[0]))
-    root = make_tree(dc_dists, labels, point_ids)
+    if point_ids is None:
+        point_ids = np.arange(int(dc_dists.shape[0]))
 
-    embedding = make_embedding(root, rotate=rotate)
-    points, labels = get_embedding_metadata(embedding)
-    nn_dict = get_nearest_neighbors(points, n_neighbors=15)
-    nonzero_inds = np.where(nn_dict['_all_dists'] > 0)
+    root = _make_tree(dc_dists, labels, point_ids)
+    if make_image:
+        plot_tree(root, labels)
 
-    ratio = dc_dists
-    ratio[nonzero_inds] /= nn_dict['_all_dists'][nonzero_inds]
+    return root, dc_dists
 
-    plt.imshow(ratio, cmap='hot', interpolation='nearest')
+def plot_embedding(embed_points, embed_labels, titles):
+    if len(embed_points.shape) == 1:
+        embed_points = np.stack((embed_points, np.zeros_like(embed_points)), -1)
+    if not isinstance(embed_labels, list):
+        embed_labels = [embed_labels]
+    if not isinstance(titles, list):
+        titles = [titles]
+    assert len(embed_labels) == len(titles)
+    fig, axes = plt.subplots(1, len(embed_labels))
+    fig.set_figwidth(3 * len(embed_labels))
+    for i, labels in enumerate(embed_labels):
+        axes[i].scatter(embed_points[:, 0], embed_points[:, 1], c=labels)
+        axes[i].set_title(titles[i])
     plt.show()
-    # assert_correctness(dc_dists, points)
 
-    return points, labels
-
-def analyze_densities(points, labels, min_points=1, embed_dim=2):
-    if embed_dim == 1:
-        rotate = False
-    else:
-        rotate = True
-
-    dc_dists = get_nearest_neighbors(points, n_neighbors=15, min_points=min_points)['_all_dists']
-    point_ids = np.arange(int(dc_dists.shape[0]))
-    root = make_tree(dc_dists, labels, point_ids)
-
+def make_dc_embedding(root, dc_dists, min_points=1, n_neighbors=15, embed_dim=2):
+    rotate = embed_dim > 1
     embedding = make_embedding(root, rotate=rotate)
-    points, labels = get_embedding_metadata(embedding)
-    nn_dict = get_nearest_neighbors(points, n_neighbors=15, min_points=min_points)
-    nonzero_inds = np.where(nn_dict['_all_dists'] > 0)
+    embed_points = get_embedding_metadata(embedding)
 
-    ratio = dc_dists
-    ratio[nonzero_inds] /= nn_dict['_all_dists'][nonzero_inds]
-    ratio[nonzero_inds] /= np.mean(ratio[nonzero_inds])
-
-    sns.heatmap(ratio, linewidth=0.0)
-    plt.savefig('min_pts_%d.png' % min_points)
-    # assert_correctness(dc_dists, points)
-
-    return points, labels
+    assert_correctness(dc_dists, embed_points, n_neighbors=n_neighbors)
+    return embed_points

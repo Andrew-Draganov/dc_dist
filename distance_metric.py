@@ -2,7 +2,6 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import expm
-from tqdm.auto import tqdm
 import itertools
 import numba
 
@@ -69,7 +68,7 @@ def get_nearest_neighbors(points, n_neighbors, min_points=5, **kwargs):
     neighbor_dists = [[] for i in range(num_points)]
     neighbor_inds = [[] for i in range(num_points)]
     max_comp_size = 1
-    for index in tqdm(argsort_inds):
+    for index in argsort_inds:
         i = int(index / num_points)
         j = index % num_points
         if component_dict[i].comp_id != component_dict[j].comp_id:
