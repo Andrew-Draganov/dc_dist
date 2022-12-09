@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.datasets import make_swiss_roll, make_circles
+from sklearn.datasets import make_swiss_roll, make_moons
 from sklearn.manifold import MDS
 from sklearn.cluster import DBSCAN
 from sklearn.metrics import normalized_mutual_info_score as nmi
 from sklearn.decomposition import PCA
 import networkx as nx
 
-from experiment_utils.get_data import get_dataset
+from experiment_utils.get_data import get_dataset, make_circles
 from distance_metric import get_nearest_neighbors
 from density_preserving_embeddings import make_dc_embedding, make_tree, plot_embedding
 from cluster_tree import dc_kmeans
@@ -132,18 +132,26 @@ if __name__ == '__main__':
     # swiss_roll_example()
     # circles_example()
 
-    points, labels = get_dataset('coil', class_list=np.arange(1, 20), points_per_class=36)
+    # points, labels = get_dataset('coil', class_list=np.arange(11, 20), points_per_class=36)
+    # points, labels = make_circles(n_samples=400, noise=0.03, radii=[0.2, 0.5, 1.0], thicknesses=[0.1, 0.1, 0.1])
+    points, labels = make_moons(n_samples=400, noise=0.15)
     # make_tree(points, labels, min_points=args.min_pts)
     root, dc_dists = make_tree(points, labels, min_points=args.min_pts, make_image=False, n_neighbors=args.n_neighbors)
     pred_labels, epsilons = dc_kmeans(root, num_points=len(labels), k=args.k, min_points=args.min_pts, power=args.power)
     embed_points = make_dc_embedding(root, dc_dists, min_points=args.min_pts, n_neighbors=args.n_neighbors)
     print('k-Means cut off epsilons:', epsilons)
-    dbscan = DBSCAN(eps=np.mean(epsilons), min_samples=args.min_pts).fit(points)
-    print('NMI truth vs. dbscan:', nmi(labels, dbscan.labels_))
+    dbscan_orig = DBSCAN(eps=np.mean(epsilons), min_samples=args.min_pts).fit(points)
+    dbscan_embed = DBSCAN(eps=np.mean(epsilons), min_samples=2).fit(embed_points)
+    print('NMI truth vs. dbscan:', nmi(labels, dbscan_orig.labels_))
     print('NMI truth vs. us:', nmi(labels, pred_labels))
-    print('NMI dbscan vs. us:', nmi(dbscan.labels_, pred_labels))
+    print('NMI dbscan vs. us:', nmi(dbscan_orig.labels_, pred_labels))
+    print('NMI dbscan vs. dbscan on embedding:', nmi(dbscan_orig.labels_, dbscan_embed.labels_))
     
-    plot_embedding(embed_points, [labels, pred_labels, dbscan.labels_], ['truth', 'us', 'dbscan'])
+    plot_embedding(
+        points,
+        [labels, pred_labels, dbscan_orig.labels_, dbscan_embed.labels_],
+        ['truth', 'us', 'dbscan_original_data', 'dbscan_embedding']
+    )
 
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
 

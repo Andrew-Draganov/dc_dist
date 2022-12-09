@@ -181,7 +181,7 @@ def plot_embedding(embed_points, embed_labels, titles):
         titles = [titles]
     assert len(embed_labels) == len(titles)
     fig, axes = plt.subplots(1, len(embed_labels))
-    fig.set_figwidth(3 * len(embed_labels))
+    fig.set_figwidth(4 * len(embed_labels))
     for i, labels in enumerate(embed_labels):
         axes[i].scatter(embed_points[:, 0], embed_points[:, 1], c=labels)
         axes[i].set_title(titles[i])
