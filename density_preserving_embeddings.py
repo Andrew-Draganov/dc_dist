@@ -19,12 +19,8 @@ class Tree:
     def set_right_tree(self, right):
         self.right_tree = right
 
-    def print_tree(self, stack_depth=0):
-        if self.left_tree is not None:
-            self.left_tree.print_tree(stack_depth + 1)
-        print('  ' * stack_depth + str(self.dist))
-        if self.right_tree is not None:
-            self.right_tree.print_tree(stack_depth + 1)
+    def is_leaf(self):
+        return self.label is not None
 
     def __len__(self):
         return len(self.children)
@@ -50,7 +46,7 @@ def _make_tree(all_dists, labels, point_ids, path=''):
     left_split = all_dists[left_inds][:, left_inds]
     left_labels, left_point_ids = labels[left_inds], point_ids[left_inds]
     root.set_left_tree(_make_tree(left_split, left_labels, left_point_ids, path=path + 'l'))
-    if root.left_tree.label is not None:
+    if root.left_tree.is_leaf():
         root.children += [root.left_tree]
     else:
         root.children += root.left_tree.children
@@ -59,7 +55,7 @@ def _make_tree(all_dists, labels, point_ids, path=''):
     right_split = all_dists[right_inds][:, right_inds]
     right_labels, right_point_ids = labels[right_inds], point_ids[right_inds]
     root.set_right_tree(_make_tree(right_split, right_labels, right_point_ids, path=path + 'r'))
-    if root.right_tree.label is not None:
+    if root.right_tree.is_leaf():
         root.children += [root.right_tree]
     else:
         root.children += root.right_tree.children
@@ -127,7 +123,7 @@ def _point_align_clusters(left_embedding, right_embedding, dist):
 
     return left_embedding, right_embedding
 def make_embedding(root, rotate=True):
-    if root.label is not None:
+    if root.is_leaf():
         return set([Point([0, 0], root.label, root.point_id)])
 
     left_embedding = make_embedding(root.left_tree, rotate)
