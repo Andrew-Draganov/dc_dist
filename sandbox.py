@@ -9,7 +9,8 @@ import networkx as nx
 
 from experiment_utils.get_data import get_dataset, make_circles
 from distance_metric import get_nearest_neighbors
-from density_preserving_embeddings import make_dc_embedding, make_tree, plot_embedding
+from density_preserving_embeddings import make_dc_embedding, make_tree
+from tree_plotting import plot_embedding
 from cluster_tree import dc_kmeans
 from GDR import GradientDR
 
@@ -74,10 +75,16 @@ if __name__ == '__main__':
         help='Dummy variable for compatibility with UMAP/tSNE distance calculation'
     )
     parser.add_argument(
-        '--norm',
+        '--prune-size',
         type=int,
+        default=0,
+        help='If >0, prune tree to remove noise groups with smaller than prune_size number of points'
+    )
+    parser.add_argument(
+        '--norm',
+        type=float,
         default=2,
-        help='norm to raise distance to when clustering'
+        help='Norm to raise distance to when clustering. Negative values are interpreted as inf. norm'
     )
     parser.add_argument(
         '--plot-tree',
@@ -94,24 +101,46 @@ if __name__ == '__main__':
     # swiss_roll_example()
     # circles_example()
 
-    # points, labels = get_dataset('coil', class_list=np.arange(1, 10), points_per_class=12)
-    points, labels = make_circles(
-        n_samples=1000,
-        noise=0.03,
-        radii=[0.2, 0.5, 1.0],
-        thicknesses=[0.1, 0.1, 0.1]
-    )
-    # points, labels = make_moons(n_samples=400, noise=0.15)
+    points, labels = get_dataset('coil', class_list=np.arange(1, 10), points_per_class=12)
+    # points, labels = make_circles(
+    #     n_samples=500,
+    #     noise=0.01,
+    #     radii=[0.5, 1.0],
+    #     thicknesses=[0.1, 0.1]
+    # )
+    # points, labels = make_moons(n_samples=400, noise=0.1)
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
 
-    root, dc_dists = make_tree(points, labels, min_points=args.min_pts, make_image=True, n_neighbors=args.n_neighbors)
-    pred_labels, epsilons = dc_kmeans(root, num_points=len(labels), k=args.k, min_points=args.min_pts, norm=args.norm)
-    embed_points = make_dc_embedding(root, dc_dists, min_points=args.min_pts, n_neighbors=args.n_neighbors)
+    root, dc_dists = make_tree(
+        points,
+        labels,
+        min_points=args.min_pts,
+        make_image=args.plot_tree,
+        n_neighbors=args.n_neighbors
+    )
+
+    pred_labels, centers, epsilons = dc_kmeans(
+        root,
+        num_points=len(labels),
+        prune_size=args.prune_size,
+        k=args.k,
+        min_points=args.min_pts,
+        norm=args.norm
+    )
+
+    embed_points = make_dc_embedding(
+        root,
+        dc_dists,
+        min_points=args.min_pts,
+        n_neighbors=args.n_neighbors
+    )
+
+    mean_eps = np.mean(epsilons[np.where(epsilons > 0)])
 
     # spectral = SpectralClustering(n_clusters=args.k).fit(points)
-    dbscan_orig = DBSCAN(eps=np.mean(epsilons), min_samples=args.min_pts).fit(points)
-    dbscan_orig = DBSCAN(eps=np.mean(epsilons), min_samples=args.min_pts).fit(points)
-    dbscan_embed = DBSCAN(eps=np.mean(epsilons), min_samples=2).fit(embed_points)
+    dbscan_orig = DBSCAN(eps=mean_eps, min_samples=args.min_pts).fit(points)
+    dbscan_orig = DBSCAN(eps=mean_eps, min_samples=args.min_pts).fit(points)
+    dbscan_embed = DBSCAN(eps=mean_eps, min_samples=2).fit(embed_points)
 
     print('k-Means cut off epsilons:', epsilons)
     print('NMI truth vs. dbscan:', nmi(labels, dbscan_orig.labels_))
@@ -120,13 +149,15 @@ if __name__ == '__main__':
     print('NMI dbscan vs. us:', nmi(dbscan_orig.labels_, pred_labels))
     print('NMI dbscan vs. dbscan on embedding:', nmi(dbscan_orig.labels_, dbscan_embed.labels_))
 
-    # If running on high-dimensional data, want to use the 'embed_points' variable for the plotting
+    plot_points = points
+    if points.shape[1] > 2:
+        plot_points = embed_points
     plot_embedding(
-        points,
+        plot_points,
         [labels, pred_labels, dbscan_orig.labels_, dbscan_embed.labels_],
-        ['truth', 'us', 'dbscan_original_data', 'dbscan_embedding']
+        ['truth', 'us', 'dbscan_original_data', 'dbscan_embedding'],
+        centers=centers
     )
-
 
     # dists = embedding_plots(points, labels)
     # histogram(dists, labels=labels)

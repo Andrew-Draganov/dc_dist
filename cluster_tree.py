@@ -11,7 +11,7 @@ class Cluster:
     def __len__(self):
         return len(self.points)
 
-def prune_tree(root, min_points):
+def prune_tree(root, prune_size):
     # FIXME -- is the size correct here?
     if root.left_tree is not None:
         if len(root.left_tree) < min_points:
@@ -35,14 +35,13 @@ def get_dist(root, path):
     return get_dist(root.right_tree, path[1:])
 
 def merge_costs(dist, c1, c2, norm):
-    if norm == 2 or norm == 1:
-        # FIXME -- do I want to be subtracting the cost here?
-        merge_right_cost = len(c1) * dist ** norm # - c1.cost
-        merge_left_cost = len(c2) * dist ** norm # - c2.cost
+    if norm >= 0 and norm != np.inf:
+        merge_right_cost = len(c1) * dist ** norm
+        merge_left_cost = len(c2) * dist ** norm
     else:
         assert norm == np.inf
-        merge_right_cost = dist#  - c1.cost
-        merge_left_cost = dist#  - c2.cost
+        merge_right_cost = dist
+        merge_left_cost = dist
 
     return merge_right_cost, merge_left_cost
 
@@ -113,16 +112,18 @@ def cluster_tree(root, subroot, k, norm):
     return clusters
 
 
-def dc_kmeans(root, num_points, k=4, prune=False, min_points=1, norm=2):
-    if prune:
-        root = prune_tree(root, min_points)
+def dc_kmeans(root, num_points, k=4, prune_size=0, min_points=1, norm=2):
+    if prune_size:
+        root = prune_tree(root, prune_size)
     clusters = cluster_tree(root, root, k=k, norm=norm)
 
     pred_labels = np.zeros(num_points)
+    centers = np.zeros(k, dtype=np.int32)
     for i, cluster in enumerate(clusters):
+        centers[i] = cluster.center.point_id
         for point in cluster.points:
             pred_labels[point.point_id] = i
     epsilons = np.array([c.max_dist for c in clusters])
 
-    return pred_labels, epsilons
+    return pred_labels, centers, epsilons
 

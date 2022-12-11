@@ -31,6 +31,21 @@ class Point:
         self.label = label
         self.point_id = point_id
 
+def get_inds(all_dists, largest_dist):
+    """
+    It will usually be the case that one subtree has cardinality 1 and the other has cardinality n-1.
+    So just randomly permute them to make tree plotting look balanced.
+    """
+    equal_inds = np.where(all_dists[0] == largest_dist)[0]
+    unequal_inds = np.where(all_dists[0] != largest_dist)[0]
+    if np.random.rand() < 0.5:
+        left_inds = equal_inds
+        right_inds = unequal_inds
+    else:
+        right_inds = equal_inds
+        left_inds = unequal_inds
+    return left_inds, right_inds
+
 def _make_tree(all_dists, labels, point_ids, path=''):
     # FIXME -- the right way to do this is to build the tree up while we're connecting the components
     largest_dist = np.max(all_dists)
@@ -42,19 +57,19 @@ def _make_tree(all_dists, labels, point_ids, path=''):
         root.path = path
         return root
 
-    left_inds = np.where(all_dists[0] == largest_dist)[0]
+    left_inds, right_inds = get_inds(all_dists, largest_dist)
+
     left_split = all_dists[left_inds][:, left_inds]
     left_labels, left_point_ids = labels[left_inds], point_ids[left_inds]
-    root.set_left_tree(_make_tree(left_split, left_labels, left_point_ids, path=path + 'l'))
+    root.set_left_tree(_make_tree(left_split, left_labels, left_point_ids, path=path+'l'))
     if root.left_tree.is_leaf():
         root.children += [root.left_tree]
     else:
         root.children += root.left_tree.children
 
-    right_inds = np.where(all_dists[0] != largest_dist)[0]
     right_split = all_dists[right_inds][:, right_inds]
     right_labels, right_point_ids = labels[right_inds], point_ids[right_inds]
-    root.set_right_tree(_make_tree(right_split, right_labels, right_point_ids, path=path + 'r'))
+    root.set_right_tree(_make_tree(right_split, right_labels, right_point_ids, path=path+'r'))
     if root.right_tree.is_leaf():
         root.children += [root.right_tree]
     else:
@@ -167,21 +182,6 @@ def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=True, poi
         plot_tree(root, labels)
 
     return root, dc_dists
-
-def plot_embedding(embed_points, embed_labels, titles):
-    if len(embed_points.shape) == 1:
-        embed_points = np.stack((embed_points, np.zeros_like(embed_points)), -1)
-    if not isinstance(embed_labels, list):
-        embed_labels = [embed_labels]
-    if not isinstance(titles, list):
-        titles = [titles]
-    assert len(embed_labels) == len(titles)
-    fig, axes = plt.subplots(1, len(embed_labels))
-    fig.set_figwidth(4 * len(embed_labels))
-    for i, labels in enumerate(embed_labels):
-        axes[i].scatter(embed_points[:, 0], embed_points[:, 1], c=labels)
-        axes[i].set_title(titles[i])
-    plt.show()
 
 def make_dc_embedding(root, dc_dists, min_points=1, n_neighbors=15, embed_dim=2):
     rotate = embed_dim > 1
