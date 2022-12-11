@@ -1,5 +1,4 @@
 import numpy as np
-from density_preserving_embeddings import make_tree
 
 class Cluster:
     def __init__(self, center, points, cost, max_dist):
