@@ -106,3 +106,27 @@ def make_dc_embedding(root, dc_dists, min_points=1, n_neighbors=15, embed_dim=2)
 
     assert_correctness(dc_dists, embed_points, n_neighbors=n_neighbors)
     return embed_points
+
+def plot_embedding(embed_points, embed_labels, titles, centers):
+    if len(embed_points.shape) == 1:
+        embed_points = np.stack((embed_points, np.zeros_like(embed_points)), -1)
+    if not isinstance(embed_labels, list):
+        embed_labels = [embed_labels]
+    if not isinstance(titles, list):
+        titles = [titles]
+    assert len(embed_labels) == len(titles)
+    fig, axes = plt.subplots(1, len(embed_labels))
+    fig.set_figwidth(4 * len(embed_labels))
+    for i, labels in enumerate(embed_labels):
+        # FIXME -- This is a bad way to check this
+        if titles[i] == 'us':
+            arange = np.arange(len(embed_points))
+            indices = [index for index in arange if index not in centers]
+            not_centers = arange[indices]
+            axes[i].scatter(embed_points[not_centers, 0], embed_points[not_centers, 1], c=labels[not_centers])
+            axes[i].scatter(embed_points[centers, 0], embed_points[centers, 1], c=labels[centers], marker='X', edgecolors='red', s=50)
+        else:
+            axes[i].scatter(embed_points[:, 0], embed_points[:, 1], c=labels)
+        axes[i].set_title(titles[i])
+    plt.show()
+

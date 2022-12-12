@@ -1,4 +1,5 @@
 import numpy as np
+from density_tree import DensityTree
 
 class Cluster:
     def __init__(self, center, points, cost, max_dist):
@@ -10,21 +11,41 @@ class Cluster:
     def __len__(self):
         return len(self.points)
 
-def prune_tree(root, prune_size):
-    # FIXME -- is the size correct here?
-    if root.left_tree is not None:
-        if len(root.left_tree) < min_points:
-            root.left_tree = None
-        else:
-            root.left_tree = prune_tree(root.left_tree, min_points)
+class PrunedTree(DensityTree):
+    def __init__(self, dist, orig_node):
+        super().__init__(dist)
+        self.orig_node = orig_node
+        self.path = self.orig_node.path
+        self.in_pruned_tree = True
 
-    if root.right_tree is not None:
-        if len(root.right_tree) < min_points:
-            root.right_tree = None
-        else:
-            root.right_tree = prune_tree(root.right_tree, min_points)
 
-    return root
+def copy_tree(root, prune_size):
+    assert isinstance(root, DensityTree)
+    pruned_root = PrunedTree(root.dist, root)
+    if not root.is_leaf():
+        if len(root.left_tree) < prune_size and len(root.right_tree) < prune_size:
+            pruned_root.label = -1
+            pruned_root.dist = 0
+        elif len(root.left_tree) < prune_size:
+            pruned_root.set_right_tree(copy_tree(root.right_tree, prune_size))
+            if pruned_root.right_tree.is_leaf():
+                pruned_root.children += [pruned_root.right_tree]
+            else:
+                pruned_root.children += pruned_root.right_tree.children
+        elif len(root.right_tree) < prune_size:
+            pruned_root.set_left_tree(copy_tree(root.left_tree, prune_size))
+            if pruned_root.left_tree.is_leaf():
+                pruned_root.children += [pruned_root.left_tree]
+            else:
+                pruned_root.children += pruned_root.left_tree.children
+        else:
+            pruned_root.set_left_tree(copy_tree(root.left_tree, prune_size))
+            pruned_root.set_right_tree(copy_tree(root.right_tree, prune_size))
+            pruned_root.children = pruned_root.left_tree.children + pruned_root.right_tree.children
+    else:
+        pruned_root.label = root.label
+
+    return pruned_root
 
 def get_dist(root, path):
     if path == '':
@@ -97,7 +118,8 @@ def cluster_tree(root, subroot, k, norm):
         clusters = []
         # If this is a single leaf
         if subroot.is_leaf():
-            return [Cluster(subroot, [subroot], 0, 0)]
+            new_cluster = Cluster(subroot, [subroot], 0, 0)
+            return [new_cluster]
         # Else this is a subtree and we want a cluster per leaf
         for leaf in subroot.children:
             point_cluster = Cluster(leaf, [leaf], 0, 0)
@@ -105,23 +127,25 @@ def cluster_tree(root, subroot, k, norm):
 
         return clusters
 
-    left_clusters = cluster_tree(root, subroot.left_tree, k, norm)
-    right_clusters = cluster_tree(root, subroot.right_tree, k, norm)
-    clusters = merge_clusters(root, left_clusters + right_clusters, k, norm)
+    clusters = []
+    if subroot.left_tree is not None:
+        clusters += cluster_tree(root, subroot.left_tree, k, norm)
+    if subroot.right_tree is not None:
+        clusters += cluster_tree(root, subroot.right_tree, k, norm)
+    clusters = merge_clusters(root, clusters, k, norm)
     return clusters
 
-
 def dc_kmeans(root, num_points, k=4, prune_size=0, min_points=1, norm=2):
-    if prune_size:
-        root = prune_tree(root, prune_size)
-    clusters = cluster_tree(root, root, k=k, norm=norm)
-
-    pred_labels = np.zeros(num_points)
+    pruned_root = copy_tree(root, prune_size)
+    clusters = cluster_tree(pruned_root, pruned_root, k=k, norm=norm)
+    pred_labels = -1 * np.ones(num_points)
     centers = np.zeros(k, dtype=np.int32)
+    # Nodes that were never put into a cluster will have pred_label -1 (noise points)
     for i, cluster in enumerate(clusters):
-        centers[i] = cluster.center.point_id
+        centers[i] = cluster.center.orig_node.children[0].point_id
         for point in cluster.points:
-            pred_labels[point.point_id] = i
+            for child in point.orig_node.children:
+                pred_labels[child.point_id] = i
     epsilons = np.array([c.max_dist for c in clusters])
 
     return pred_labels, centers, epsilons

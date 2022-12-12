@@ -10,6 +10,7 @@ class DensityTree:
         self.right_tree = None
         self.label = None
         self.point_id = None
+        self.in_pruned_tree = False
         self.path = ''
 
     def set_left_tree(self, left):
@@ -68,6 +69,7 @@ def _make_tree(all_dists, labels, point_ids, path=''):
     else:
         root.children += root.right_tree.children
 
+    root.path = path
     return root
 
 def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=True, point_ids=None):
