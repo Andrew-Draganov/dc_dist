@@ -105,11 +105,11 @@ if __name__ == '__main__':
     points, labels = get_dataset('coil', class_list=np.arange(1, 10), points_per_class=12)
     # points, labels = make_circles(
     #     n_samples=500,
-    #     noise=0.01,
+    #     noise=0.05,
     #     radii=[0.5, 1.0],
     #     thicknesses=[0.1, 0.1]
     # )
-    # points, labels = make_moons(n_samples=400, noise=0.1)
+    # points, labels = make_moons(n_samples=400, noise=0.05)
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
 
     root, dc_dists = make_tree(

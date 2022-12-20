@@ -1,5 +1,6 @@
 import numpy as np
 from distance_metric import get_nearest_neighbors
+from tree_plotting import plot_tree
 import matplotlib.pyplot as plt
 
 class DensityTree:
