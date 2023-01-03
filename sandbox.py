@@ -102,13 +102,13 @@ if __name__ == '__main__':
     # swiss_roll_example()
     # circles_example()
 
-    # points, labels = get_dataset('coil', class_list=np.arange(1, 10), points_per_class=12)
-    points, labels = make_circles(
-        n_samples=500,
-        noise=0.01,
-        radii=[0.5, 1.0],
-        thicknesses=[0.1, 0.1]
-    )
+    points, labels = get_dataset('coil', class_list=np.arange(10, 20), points_per_class=12)
+    # points, labels = make_circles(
+    #     n_samples=500,
+    #     noise=0.01,
+    #     radii=[0.5, 1.0],
+    #     thicknesses=[0.1, 0.1]
+    # )
     # points, labels = make_moons(n_samples=400, noise=0.1)
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
 
@@ -136,12 +136,17 @@ if __name__ == '__main__':
         n_neighbors=args.n_neighbors
     )
 
-    mean_eps = np.mean(epsilons[np.where(epsilons > 0)])
+    # FIXME -- giving k can NEVER guarantee that we get the epsilon such that splitting at epsilon gives k clusters
+    # (at least based on min/max/mean)
+    # If I pick the min of the epsilons that we get from k, then I can have a branch whose distances fall of slowly
+    #     and I would get a bunch of splits on it
+    # Thus, picking min means that I will get greater than or equal to $k$ clusters when I do DBSCAN  
+    # Similarly, picking max means that I will get less than or equal to $k$ clusters when I do DBSCAN
+    eps = np.max(epsilons[np.where(epsilons > 0)])
 
     # spectral = SpectralClustering(n_clusters=args.k).fit(points)
-    dbscan_orig = DBSCAN(eps=mean_eps, min_samples=args.min_pts).fit(points)
-    dbscan_orig = DBSCAN(eps=mean_eps, min_samples=args.min_pts).fit(points)
-    dbscan_embed = DBSCAN(eps=mean_eps, min_samples=2).fit(embed_points)
+    dbscan_orig = DBSCAN(eps=eps, min_samples=args.min_pts).fit(points)
+    dbscan_embed = DBSCAN(eps=eps, min_samples=args.min_pts).fit(embed_points)
 
     print('k-Means cut off epsilons:', epsilons)
     print('NMI truth vs. dbscan:', nmi(labels, dbscan_orig.labels_))

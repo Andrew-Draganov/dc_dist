@@ -2,57 +2,38 @@ import numpy as np
 from density_tree import DensityTree
 
 class Cluster:
-    def __init__(self, center, points, cost, max_dist):
+    def __init__(self, center, points, cost, peak):
         self.center = center
         self.points = points
         self.cost = cost
-        self.max_dist = max_dist
+        self.peak = peak
 
     def __len__(self):
         return len(self.points)
 
-class PrunedTree(DensityTree):
-    def __init__(self, dist, orig_node):
-        super().__init__(dist)
-        self.orig_node = orig_node
-        self.path = self.orig_node.path
-        self.in_pruned_tree = True
-
-
 def copy_tree(root, prune_size):
-    assert isinstance(root, DensityTree)
-    pruned_root = PrunedTree(root.dist, root)
-    if not root.is_leaf():
-        if len(root.left_tree) < prune_size and len(root.right_tree) < prune_size:
-            pruned_root.label = -1
-            pruned_root.dist = 0
-        elif len(root.left_tree) < prune_size:
-            pruned_root.set_right_tree(copy_tree(root.right_tree, prune_size))
-            if pruned_root.right_tree.is_leaf():
-                pruned_root.children += [pruned_root.right_tree]
-            else:
-                pruned_root.children += pruned_root.right_tree.children
-        elif len(root.right_tree) < prune_size:
-            pruned_root.set_left_tree(copy_tree(root.left_tree, prune_size))
-            if pruned_root.left_tree.is_leaf():
-                pruned_root.children += [pruned_root.left_tree]
-            else:
-                pruned_root.children += pruned_root.left_tree.children
-        else:
-            pruned_root.set_left_tree(copy_tree(root.left_tree, prune_size))
-            pruned_root.set_right_tree(copy_tree(root.right_tree, prune_size))
-            pruned_root.children = pruned_root.left_tree.children + pruned_root.right_tree.children
-    else:
-        pruned_root.label = root.label
+    # FIXME -- the if-statement is wrong. Under this logic, prune_size=0 will still give noise points
+    if len(root) > prune_size:
+        pruned_root = DensityTree(root.dist, orig_node=root, path=root.path, parent=root.parent)
+        pruned_root.set_left_tree(copy_tree(root.left_tree, prune_size))
+        pruned_root.set_right_tree(copy_tree(root.right_tree, prune_size))
+        pruned_root.count_children()
+        return pruned_root
 
-    return pruned_root
+    return None
 
-def get_dist(root, path):
+def get_node(root, path):
     if path == '':
-        return root.dist
+        return root
     if path[0] == 'l':
-        return get_dist(root.left_tree, path[1:])
-    return get_dist(root.right_tree, path[1:])
+        return get_node(root.left_tree, path[1:])
+    return get_node(root.right_tree, path[1:])
+
+def get_lca_path(left, right):
+    depth = 0
+    while left.path[depth] == right.path[depth]:
+        depth += 1
+    return left.path[:depth]
 
 def merge_costs(dist, c1, c2, norm):
     if norm >= 0 and norm != np.inf:
@@ -80,11 +61,8 @@ def merge_clusters(root, clusters, k, norm):
             right = clusters[i+1].center
             
             # Get cost of merging between left and right clusters
-            depth = 0
-            while left.path[depth] == right.path[depth]:
-                depth += 1
-            parent_path = left.path[:depth]
-            dist = get_dist(root, parent_path)
+            parent_path = get_lca_path(left, right)
+            dist = get_node(root, parent_path).dist
             merge_right_cost, merge_left_cost = merge_costs(
                 dist,
                 clusters[i],
@@ -105,10 +83,9 @@ def merge_clusters(root, clusters, k, norm):
                 min_dist = dist
 
         # Merge the smaller cluster into the bigger cluster. Delete the smaller cluster.
+        merge_receiver.peak = get_node(root, get_lca_path(merge_receiver.center, to_be_merged.center))
         merge_receiver.points += to_be_merged.points
         merge_receiver.cost += len(to_be_merged) * dist ** 2
-        max_dist = max([dist, merge_receiver.max_dist, to_be_merged.max_dist])
-        merge_receiver.max_dist = max_dist
         clusters.pop(min_i)
 
     return clusters
@@ -117,36 +94,48 @@ def cluster_tree(root, subroot, k, norm):
     if len(subroot) <= k:
         clusters = []
         # If this is a single leaf
-        if subroot.is_leaf():
-            new_cluster = Cluster(subroot, [subroot], 0, 0)
+        if subroot.is_leaf:
+            new_cluster = Cluster(subroot, [subroot], 0, subroot)
             return [new_cluster]
         # Else this is a subtree and we want a cluster per leaf
         for leaf in subroot.children:
-            point_cluster = Cluster(leaf, [leaf], 0, 0)
+            point_cluster = Cluster(leaf, [leaf], 0, subroot)
             clusters.append(point_cluster)
 
         return clusters
 
     clusters = []
-    if subroot.left_tree is not None:
+    if subroot.has_left_tree:
         clusters += cluster_tree(root, subroot.left_tree, k, norm)
-    if subroot.right_tree is not None:
+    if subroot.has_right_tree:
         clusters += cluster_tree(root, subroot.right_tree, k, norm)
     clusters = merge_clusters(root, clusters, k, norm)
     return clusters
 
+def deprune_clusters(clusters):
+    """ Find the cluster's maximum parent and set all the children of that node to be in the cluster """
+    depruned_clusters = []
+    for cluster in clusters:
+        cluster.points = cluster.peak.orig_node.children
+
 def dc_kmeans(root, num_points, k=4, prune_size=0, min_points=1, norm=2):
+    # FIXME -- notes for later
+    # 1) Shouldn't do k-means and k-median on pruned trees since the addition of new nodes would mess up the weighting
+    #    It only makes sense for the pruned tree
+    # 2) Using prune_size > 1 creates a ton of noise points because our distance measure is max(d(a, b), knn(a), knn(b))??
+    # 2.a) Using prune_size = 0 gives some noise points still??
+    # 3) k-median gives TONS of noise points for some reason. In groups that are way too large
     pruned_root = copy_tree(root, prune_size)
     clusters = cluster_tree(pruned_root, pruned_root, k=k, norm=norm)
+    deprune_clusters(clusters)
     pred_labels = -1 * np.ones(num_points)
     centers = np.zeros(k, dtype=np.int32)
     # Nodes that were never put into a cluster will have pred_label -1 (noise points)
     for i, cluster in enumerate(clusters):
         centers[i] = cluster.center.orig_node.children[0].point_id
         for point in cluster.points:
-            for child in point.orig_node.children:
-                pred_labels[child.point_id] = i
-    epsilons = np.array([c.max_dist for c in clusters])
+            pred_labels[point.point_id] = i
+    epsilons = np.array([c.peak.dist for c in clusters])
 
     return pred_labels, centers, epsilons
 

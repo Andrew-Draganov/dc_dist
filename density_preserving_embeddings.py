@@ -10,7 +10,7 @@ class Point:
         self.point_id = point_id
 
 def make_embedding(root, rotate=True):
-    if root.is_leaf():
+    if root.is_leaf:
         return set([Point([0, 0], root.label, root.point_id)])
 
     left_embedding = make_embedding(root.left_tree, rotate)
