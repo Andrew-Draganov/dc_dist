@@ -12,6 +12,9 @@ import seaborn as sns
 def set_seed(i):
     np.random.seed(i)
 
+    
+# obtain n uniformly sampled points within a d-sphere with a fixed radius around a given point. Assigns all points to given cluster
+# code partially based on code provided here http://extremelearning.com.au/how-to-generate-uniformly-random-points-on-n-spheres-and-n-balls/
 def random_ball_num(center, radius, d, n, clunum):
     d = int(d)
     n = int(n)
@@ -24,6 +27,7 @@ def random_ball_num(center, radius, d, n, clunum):
     x[:,-1] = clunum
     return x
 
+# obtain n uniformly sampled points within a d-sphere with a fixed radius around a given point. Does not assign all points to given cluster
 def random_ball_num_noclu(center, radius, d, n):
     u = np.random.normal(0,1,(n,d))  # an array of d normally distributed random variables
     norm=np.sqrt(np.sum(u**2,1))
@@ -33,6 +37,7 @@ def random_ball_num_noclu(center, radius, d, n):
     x = center + x*radius
     return x
 
+# detect if point within minimal distance of a set of points
 def tooclose (pos, cluid, points, labels, factors, mindist, d):
     #if (len(points) > 0):
     #    points = points[0]
@@ -50,6 +55,8 @@ def tooclose (pos, cluid, points, labels, factors, mindist, d):
             return True
     return False
 
+    
+# obtain index of closesest point
 def getclosest (pos, points, startdist, d):
     #if (len(points) > 0):
     #    points = points[0]
@@ -68,6 +75,8 @@ def getclosest (pos, points, startdist, d):
             
     return minj
 
+    
+# Seed Spreader improved on description from DBSCAN Revisited: Mis-Claim, Un-Fixability, and Approximation by Junhao Gan and Yufei Tao
 def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_subspace,
                     num_connections, con_density, seed, vardensity):
     set_seed(seed)
@@ -290,7 +299,7 @@ if __name__ == '__main__':
     args = sys.argv
     
     # seed, number of points (without noise), dimensionality, cluster number
-    # cluster density (default: False; active with "true", "True" or "1")
+    # variable cluster density (default: False; active with "true", "True" or "1")
     # number of noise points (default: 0.001 * points)
     # cluster sphere point number, cluster sphere size = cluster sphere shift (default: 100,100)
     # number of connections (default: 0), density of connections
@@ -348,7 +357,7 @@ if __name__ == '__main__':
     filename = filename + str(seed) + ".npy"
     np.save(os.path.join(path, filename), synthdata)
 
-    color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
+    #color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
     #print(color[x3[:,2].astype('int32')])
 
     #plt.figure(figsize=(15,15))
