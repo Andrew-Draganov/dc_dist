@@ -294,29 +294,19 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
     data_final = np.array(data_final)
 
     return data_final, center_store_other_shift
-
-if __name__ == '__main__':
-    args = sys.argv
     
-    # seed, number of points (without noise), dimensionality, cluster number
-    # variable cluster density (default: False; active with "true", "True" or "1")
-    # number of noise points (default: 0.001 * points)
-    # cluster sphere point number, cluster sphere size = cluster sphere shift (default: 100,100)
-    # number of connections (default: 0), density of connections
-    # minimal number of dimensions for the cluster subspace (default: all dims -> no subspaces)
-
-    print(args)
-
+    
+def run(args):
     seed = int(args[1])
-    c_reset = 100
-    r_sphere = 100
+    c_reset = 10
+    r_sphere = 25
     num_con = 0
     den_con = 1
     num_nonoise = int(args[2])
 
     dim = int(args[3])
     cln = int(args[4])
-    r_shift = 100
+    r_shift = 25
 
     num_noise = int (math.ceil(0.001 * num_nonoise))
     min_sub = dim
@@ -347,7 +337,7 @@ if __name__ == '__main__':
     min_size = int(math.ceil(num_nonoise / cln**2))
 
     num = num_nonoise + num_noise
-    domain_size = 1000
+    domain_size = 500
     synthdata, centers = spreader_improv(num, dim, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_sub, num_con, den_con, seed, vardensity)
     path = "data/synth"
         
@@ -356,15 +346,27 @@ if __name__ == '__main__':
          filename = filename + "vardensity_"
     filename = filename + str(seed) + ".npy"
     np.save(os.path.join(path, filename), synthdata)
+    
+    color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
+    plt.figure(figsize=(15,15))
+    plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.4)
+    plt.scatter(centers[:,0], centers[:,1], c='black', alpha=1)
 
-    #color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
-    #print(color[x3[:,2].astype('int32')])
+    plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
+    plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
 
-    #plt.figure(figsize=(15,15))
-    #plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.4)
-    #plt.scatter(centers[:,0], centers[:,1], c='black', alpha=1)
+    plt.show()
 
-    #plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
-    #plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
+if __name__ == '__main__':
+    args = sys.argv
+    
+    # seed, number of points (without noise), dimensionality, cluster number
+    # variable cluster density (default: False; active with "true", "True" or "1")
+    # number of noise points (default: 0.001 * points)
+    # cluster sphere point number, cluster sphere size = cluster sphere shift (default: 100,100)
+    # number of connections (default: 0), density of connections
+    # minimal number of dimensions for the cluster subspace (default: all dims -> no subspaces)
 
-    #plt.show()
+    print(args)
+
+    run(args)
