@@ -11,12 +11,11 @@ class Cluster:
     def __len__(self):
         return len(self.points)
 
-def copy_tree(root, prune_size):
-    # FIXME -- the if-statement is wrong. Under this logic, prune_size=0 will still give noise points
-    if len(root) > prune_size:
+def copy_tree(root, min_points):
+    if len(root) >= min_points:
         pruned_root = DensityTree(root.dist, orig_node=root, path=root.path, parent=root.parent)
-        pruned_root.set_left_tree(copy_tree(root.left_tree, prune_size))
-        pruned_root.set_right_tree(copy_tree(root.right_tree, prune_size))
+        pruned_root.set_left_tree(copy_tree(root.left_tree, min_points))
+        pruned_root.set_right_tree(copy_tree(root.right_tree, min_points))
         pruned_root.count_children()
         return pruned_root
 
@@ -33,6 +32,8 @@ def get_lca_path(left, right):
     depth = 0
     while left.path[depth] == right.path[depth]:
         depth += 1
+        if depth >= len(left.path) or depth >= len(right.path):
+            break
     return left.path[:depth]
 
 def merge_costs(dist, c1, c2, norm):
@@ -83,7 +84,7 @@ def merge_clusters(root, clusters, k, norm):
                 min_dist = dist
 
         # Merge the smaller cluster into the bigger cluster. Delete the smaller cluster.
-        merge_receiver.peak = get_node(root, get_lca_path(merge_receiver.center, to_be_merged.center))
+        merge_receiver.peak = get_node(root, get_lca_path(merge_receiver.peak, to_be_merged.peak))
         merge_receiver.points += to_be_merged.points
         merge_receiver.cost += len(to_be_merged) * dist ** 2
         clusters.pop(min_i)
@@ -99,7 +100,7 @@ def cluster_tree(root, subroot, k, norm):
             return [new_cluster]
         # Else this is a subtree and we want a cluster per leaf
         for leaf in subroot.children:
-            point_cluster = Cluster(leaf, [leaf], 0, subroot)
+            point_cluster = Cluster(leaf, [leaf], 0, leaf)
             clusters.append(point_cluster)
 
         return clusters
@@ -118,24 +119,40 @@ def deprune_clusters(clusters):
     for cluster in clusters:
         cluster.points = cluster.peak.orig_node.children
 
-def dc_kmeans(root, num_points, k=4, prune_size=0, min_points=1, norm=2):
-    # FIXME -- notes for later
-    # 1) Shouldn't do k-means and k-median on pruned trees since the addition of new nodes would mess up the weighting
-    #    It only makes sense for the pruned tree
-    # 2) Using prune_size > 1 creates a ton of noise points because our distance measure is max(d(a, b), knn(a), knn(b))??
-    # 2.a) Using prune_size = 0 gives some noise points still??
-    # 3) k-median gives TONS of noise points for some reason. In groups that are way too large
-    pruned_root = copy_tree(root, prune_size)
-    clusters = cluster_tree(pruned_root, pruned_root, k=k, norm=norm)
+def dc_kcenter(root, num_points, k, min_points):
+    # k-center has the option of accounting for noise points
+    pruned_root = copy_tree(root, min_points)
+    clusters = cluster_tree(pruned_root, pruned_root, k=k, norm=np.inf)
     deprune_clusters(clusters)
+
+    return clusters
+
+def get_cluster_metadata(clusters, num_points, k):
+    # Nodes that were never put into a cluster will have pred_label -1 (noise points)
     pred_labels = -1 * np.ones(num_points)
     centers = np.zeros(k, dtype=np.int32)
-    # Nodes that were never put into a cluster will have pred_label -1 (noise points)
     for i, cluster in enumerate(clusters):
-        centers[i] = cluster.center.orig_node.children[0].point_id
+        if cluster.center.orig_node is None:
+            centers[i] = cluster.center.point_id
+        else:
+            centers[i] = cluster.center.orig_node.children[0].point_id
         for point in cluster.points:
             pred_labels[point.point_id] = i
     epsilons = np.array([c.peak.dist for c in clusters])
 
     return pred_labels, centers, epsilons
+
+def dc_clustering(root, num_points, k=4, min_points=1, norm=2):
+    # FIXME -- notes for later
+    # 1) Shouldn't do k-means and k-median on pruned trees since the addition of new nodes would mess up the weighting
+    #    It only makes sense for the pruned tree
+    # 2) Using min_points > 1 creates a ton of noise points because our distance measure is max(d(a, b), knn(a), knn(b))??
+    # 2.a) Using min_points = 0 gives some noise points still??
+    # 3) k-median gives TONS of noise points for some reason. In groups that are way too large
+    if norm < 0 or norm == np.inf:
+        clusters = dc_kcenter(root, num_points, k, min_points)
+    else:
+        clusters = cluster_tree(root, root, k=k, norm=norm)
+
+    return get_cluster_metadata(clusters, num_points, k)
 

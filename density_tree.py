@@ -7,7 +7,6 @@ class DensityTree:
     def __init__(self, dist, orig_node=None, path='', parent=None):
         self.dist = dist
         self.children = []
-
         self.left_tree = None
         self.right_tree = None
         self.label = None
@@ -99,7 +98,7 @@ def _make_tree(all_dists, labels, point_ids, path=''):
     return root
 
 def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=True, point_ids=None):
-    dc_dists = get_nearest_neighbors(\
+    dc_dists = get_nearest_neighbors(
         points,
         n_neighbors=n_neighbors,
         min_points=min_points
