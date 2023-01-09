@@ -18,6 +18,30 @@ def load_mnist():
     labels = np.array(labels)
     return points, labels
 
+def make_circles(n_samples, noise=0., radii=None, thicknesses=None, labels_as_radius=False):
+    assert radii is not None
+    if thicknesses is None:
+        thicknesses = [0 for r in radii]
+    n_circles = len(radii)
+    points_per_circle = n_samples // n_circles
+
+    circles = [[] for i in range(n_circles)]
+    for circle in range(n_circles):
+        linspace = np.linspace(0, 2 * np.pi, points_per_circle, endpoint=False)
+        point_norms = (np.random.rand(points_per_circle) - 0.5) * thicknesses[circle] + radii[circle]
+        x_vals = np.cos(linspace) * point_norms
+        y_vals = np.sin(linspace) * point_norms
+        circles[circle] = np.stack((x_vals, y_vals), axis=-1)
+        circles[circle] += np.random.normal(0, scale=noise, size=circles[circle].shape)
+
+    points = np.concatenate(circles, axis=0)
+    if labels_as_radius:
+        labels = np.sqrt(points[:, 0]**2 + points[:, 1]**2)
+    else:
+        labels = np.hstack([np.ones([points_per_circle]) * i for i in range(n_circles)])
+    return points, labels
+
+
 def load_coil100_data(directory=None):
     """
     This is using the coil100 dataset available on Kaggle at https://www.kaggle.com/datasets/jessicali9530/coil100
