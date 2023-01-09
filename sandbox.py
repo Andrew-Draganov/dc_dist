@@ -99,6 +99,7 @@ if __name__ == '__main__':
     # swiss_roll_example()
     # circles_example()
 
+    points, labels = get_dataset('synth', num_classes=6, points_per_class=72)
     points, labels = get_dataset('coil', class_list=np.arange(1, 11), points_per_class=10)
     # points, labels = get_dataset('mnist', num_classes=2, points_per_class=500)
 
