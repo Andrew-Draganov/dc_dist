@@ -51,14 +51,13 @@ def get_nearest_neighbors(points, n_neighbors, min_points=5, **kwargs):
         # Make into an NxN matrix
         reach_dists_i, reach_dists_j = np.meshgrid(reach_dists, reach_dists)
 
-        # Zero out the diagonal so that it's a distance metric
-        diag_mask = np.ones([num_points, num_points]) - np.eye(num_points)
-        reach_dists_i *= diag_mask
-        reach_dists_j *= diag_mask
-
         # Take max of reach_i, D_ij, reach_j
         D = np.stack([D, reach_dists_i, reach_dists_j], axis=-1)
         D = np.max(D, axis=-1)
+
+        # Zero out the diagonal so that it's a distance metric
+        diag_mask = np.ones([num_points, num_points]) - np.eye(num_points)
+        D *= diag_mask
 
     flat_D = np.reshape(D, [num_points * num_points])
     argsort_inds = np.argsort(flat_D)

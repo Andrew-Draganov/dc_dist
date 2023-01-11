@@ -52,12 +52,6 @@ if __name__ == '__main__':
     if args.norm == -1:
         args.norm = np.inf
 
-    # Trivial examples
-    # uniform_line_example()
-    # linear_growth_example()
-    # swiss_roll_example()
-    # circles_example()
-
     # points, labels = get_dataset('synth', num_classes=6, points_per_class=72)
     # points, labels = get_dataset('coil', class_list=np.arange(1, 20), points_per_class=36)
     # points, labels = make_circles(
