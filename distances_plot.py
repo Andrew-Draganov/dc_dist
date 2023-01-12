@@ -5,18 +5,18 @@ from sklearn.datasets import make_swiss_roll, make_moons
 from sklearn.cluster import DBSCAN
 
 from distance_metric import get_nearest_neighbors
-from density_preserving_embeddings import make_dc_embedding
+# from density_preserving_embeddings import make_dc_embedding
 from density_tree import make_tree
-from tree_plotting import plot_embedding
+# from tree_plotting import plot_embedding
 from cluster_tree import dc_clustering
-from experiment_utils.get_data import get_dataset, make_circles
+# from experiment_utils.get_data import get_dataset, make_circles
 
 # Want to make a heatmap of the distance to a chosen point in a given dataset
 # Want epsilon distance to be in red dotted line
 # Show the k-center clustering
 # Show the dbscan clustering with that epsilon
 
-if __name__ == '__main__':
+def distance_plot():
     plt.rcParams.update({'font.size': 10, 'text.usetex': True})
     fig, ax = plt.subplots(nrows=1, ncols=3)
     fig.set_figheight(6)
@@ -115,3 +115,65 @@ if __name__ == '__main__':
     plt.colorbar(cf_plot, ax=ax[2], shrink=0.8, extend='both', location='right')
 
     plt.show()
+
+
+
+def plot_dbscan(X, dbscan, ax, flag_plotBorderPts=False):
+    if not flag_plotBorderPts:
+        # plot clusters
+        ax.scatter(X[:, 0][dbscan.labels_ != -1],
+                   X[:, 1][dbscan.labels_ != -1],
+                   c=dbscan.labels_[dbscan.labels_ != -1],
+                   s=25, cmap='viridis')
+        # higlight noise pts
+        ax.scatter(X[:, 0][dbscan.labels_ == -1],
+                   X[:, 1][dbscan.labels_ == -1],
+                   s=50,
+                   color="red")
+    else:
+        core_indices = dbscan.core_sample_indices_
+        mask = np.full(len(X), False, dtype=bool)
+        mask[core_indices] = 1
+        # just plot core points
+        ax.scatter(X[:, 0][mask],
+                   X[:, 1][mask],
+                   c=dbscan.labels_[mask],
+                   s=25, cmap='viridis')
+        # highlight border pts
+        ax.scatter(X[:, 0][~mask & (dbscan.labels_ != -1)],
+                   X[:, 1][~mask & (dbscan.labels_ != -1)],
+                   s=50, color="gray")
+        # higlight noise pts
+        ax.scatter(X[:, 0][dbscan.labels_ == -1],
+                   X[:, 1][dbscan.labels_ == -1],
+                   s=50,
+                   color="red")
+    # customize plot
+    ax.set_title("DBSCAN - $minPts:{minPts}$, $\epsilon:{eps}$".format(
+        minPts=dbscan.min_samples,
+        eps=dbscan.eps))
+    ax.set_xlabel("1st feature")
+    ax.set_ylabel("2nd feature")
+
+
+if __name__ == '__main__':
+    # distance_plot()  # <- Andrew
+
+    # Plotting Border pts
+    # generate dataset
+    X, y_true = make_moons(n_samples=100, noise=0.05, random_state=123)
+    # apply DBSCAN
+    dbscan = DBSCAN(eps=0.2, min_samples=5)
+    dbscan_res = dbscan.fit_predict(X)
+    # init plot
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 8))
+    ax1 , ax2 = axes
+    # plot raw data
+    ax1.scatter(X[:, 0], X[:, 1], c=y_true, s=25, cmap='viridis')
+    ax1.set_title("raw dataset")
+    ax1.set_xlabel("1st feature")
+    ax1.set_ylabel("2nd feature")
+    # plot DBSCAN result
+    plot_dbscan(X, dbscan, ax2, flag_plotBorderPts=True)
+    # save fig
+    fig.savefig("dbscan_result.png")
