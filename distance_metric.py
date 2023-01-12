@@ -46,7 +46,7 @@ def get_nearest_neighbors(points, n_neighbors, min_points=5, **kwargs):
             raise ValueError('Min points cannot exceed the size of the dataset')
         # Get reachability for each point with respect to min_points parameter
         reach_dists = np.sort(D, axis=1)
-        reach_dists = reach_dists[:, min_points]
+        reach_dists = reach_dists[:, min_points - 1]
 
         # Make into an NxN matrix
         reach_dists_i, reach_dists_j = np.meshgrid(reach_dists, reach_dists)
