@@ -17,15 +17,16 @@ from sklearn.decomposition import PCA
 from sklearn.datasets import make_blobs, fetch_olivetti_faces
 
 from distance_metric import get_nearest_neighbors
+from sklearn.metrics.pairwise import cosine_distances, manhattan_distances
 
 from GDR import GradientDR
 
 
 """ synthetic datasets """             
-def reduceSynthData(minPoints, dim):
+def reduceSynthData(minPoints, dim, distance_metric):
     points_all_datasets = loadSynthDatasets()
     
-    calcReductionSynth(minPoints, points_all_datasets, dim)
+    calcReductionSynth(minPoints, points_all_datasets, dim, distance_metric)
   
 def loadSynthDatasets():
     points_b1, labels_b1 = make_blobs(n_samples=10000, centers=10, n_features=50, random_state=1)
@@ -54,10 +55,18 @@ def loadSynthDatasets():
     
     return points  
   
-def calcReductionSynth(minPoints, points_all_datasets, dim):
+def calcReductionSynth(minPoints, points_all_datasets, dim, distance_metric):
     for i in tqdm(range(len(dim))):
         for j in tqdm(range(len(points_all_datasets))):
-            distance_matrix = get_nearest_neighbors(points_all_datasets[j], 15 , minPoints)['_all_dists']
+            points = points_all_datasets[j]
+            
+            if distance_metric == 'ours':
+                distance_matrix = get_nearest_neighbors(points, 15, minPoints)['_all_dists']
+            if distance_metric == 'cosine':
+                distance_matrix = cosine_distances(points)
+            if distance_metric == 'manhattan':
+                distance_matrix = manhattan_distances(points)
+            
             reducedData = MDS(n_components=dim[i]).fit_transform(distance_matrix)
             
             if j < 3:
@@ -65,7 +74,7 @@ def calcReductionSynth(minPoints, points_all_datasets, dim):
             else:
                 dataType = 'd'
         
-            filename = "../reducedSynthDatasets/ours_"+str(dim[i])+"_"+str(minPoints)+"_"+str(dataType)+str((j%3)+1)+".txt"
+            filename = "../reducedSynthDatasets/"+str(distance_metric)+"_"+str(dim[i])+"_"+str(minPoints)+"_"+str(dataType)+str((j%3)+1)+".txt"
             with open(filename, 'w') as f:
                 f.write(str(reducedData.tolist()))
 
@@ -242,20 +251,27 @@ def calcUMAP(points_all_datasets, dims, datatypes):
    
                 
 """ time-consuming reductions: """
-def reduceRealDataMDS(to_load, minPoints, dims):
+def reduceRealDataMDS(to_load, minPoints, dims, distance_metric):
     points_all_datasets, _ = loadRealDatasets(to_load)
     
     calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims)
   
-def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims):
+def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance_metric):
     for dim in tqdm(dims):
         for j in tqdm(range(len(points_all_datasets))):
             dataType = to_load[j]
+            points = points_all_datasets[j]
             
-            distance_matrix = get_nearest_neighbors(points_all_datasets[j], 15, minPoints)['_all_dists']
+            if distance_metric == 'ours':
+                distance_matrix = get_nearest_neighbors(points, 15, minPoints)['_all_dists']
+            if distance_metric == 'cosine':
+                distance_matrix = cosine_distances(points)
+            if distance_metric == 'manhattan':
+                distance_matrix = manhattan_distances(points)
+                
             reducedData = MDS(n_components=dim).fit_transform(distance_matrix)
         
-            filename = "../reducedRealDatasets/"+str(dataType)+"/mds_ours_"+str(dim)+"_"+str(minPoints)+"_"+str(dataType)+".txt"
+            filename = "../reducedRealDatasets/"+str(dataType)+"/mds_"+str(distance_metric)+"_"+str(dim)+"_"+str(minPoints)+"_"+str(dataType)+".txt"
             #filename = "../reducedRealDatasets/mds_ours_"+str(dim)+"_"+str(minPoints)+"_"+str(dataType)+".txt"
             with open(filename, 'w') as f:
                 f.write(str(reducedData.tolist()))    
@@ -263,40 +279,8 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims):
      
     
 if __name__ == '__main__':
-    reduceRealDataMDS(['coil20'], 5, [2])
-    
-    """reduceRealData_PCA_TSNE_UMAP(['drivface'], [606], 'pca')
-    reduceRealData_PCA_TSNE_UMAP(['coil'], [7200], 'pca')
-    reduceRealData_PCA_TSNE_UMAP(['coil20'], [1440], 'pca')
-    
-    reduceRealDataMDS(['pendigits'], minPoints=1, dims=[16])
-    reduceRealDataMDS(['pendigits'], minPoints=5, dims=[16])
-    reduceRealDataMDS(['pendigits'], minPoints=10, dims=[16])
-    
-    reduceRealDataMDS(['landsat'], minPoints=1, dims=[36])
-    reduceRealDataMDS(['landsat'], minPoints=5, dims=[36])
-    reduceRealDataMDS(['landsat'], minPoints=10, dims=[36])"""
-    
-    """reduceRealDataMDS(['coil20'], minPoints=1, dims=[360])
-    reduceRealDataMDS(['coil20'], minPoints=5, dims=[360])
-    reduceRealDataMDS(['coil20'], minPoints=10, dims=[360])"""
-    
-    """reduceRealDataMDS(['coil20'], minPoints=1, dims=[1440])
-    reduceRealDataMDS(['coil20'], minPoints=5, dims=[1440])
-    reduceRealDataMDS(['coil20'], minPoints=10, dims=[1440])"""
-    
-    """reduceRealDataMDS(['olivetti'], minPoints=1, dims=[400])
-    reduceRealDataMDS(['olivetti'], minPoints=5, dims=[400])
-    reduceRealDataMDS(['olivetti'], minPoints=10, dims=[400])
-    
-    reduceRealDataMDS(['drivface'], minPoints=1, dims=[606])
-    reduceRealDataMDS(['drivface'], minPoints=5, dims=[606])
-    reduceRealDataMDS(['drivface'], minPoints=10, dims=[606])
-    
-    reduceRealDataMDS(['coil'], minPoints=1, dims=[7200])
-    reduceRealDataMDS(['coil'], minPoints=5, dims=[7200])
-    reduceRealDataMDS(['coil'], minPoints=10, dims=[7200])"""
-
+    reduceSynthData(1, [2, 10, 50], 'cosine')
+    reduceSynthData(1, [2, 10, 50], 'manhattan')
     
     
     
