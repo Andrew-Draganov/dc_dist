@@ -5,14 +5,10 @@ from sklearn.datasets import make_swiss_roll, make_moons
 from sklearn.cluster import DBSCAN
 
 from distance_metric import get_nearest_neighbors
-# from density_preserving_embeddings import make_dc_embedding
 from density_tree import make_tree
-# from tree_plotting import plot_embedding
 from cluster_tree import dc_clustering
-# from experiment_utils.get_data import get_dataset, make_circles
 
 # Want to make a heatmap of the distance to a chosen point in a given dataset
-# Want epsilon distance to be in red dotted line
 # Show the k-center clustering
 # Show the dbscan clustering with that epsilon
 

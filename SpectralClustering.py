@@ -30,7 +30,8 @@ class SpectralClustering_own(object):
             self.n_vecs = n_vecs
 
     def _calc_kmeans(self, n_cluster, n_vecs):
-        kmeans = KMeans(n_clusters=n_cluster, n_init='auto')
+        # kmeans = KMeans(n_clusters=n_cluster, n_init='auto') ### <-- Original code
+        kmeans = KMeans(n_clusters=n_cluster, n_init=5) ### <-- Andrew change 
         kmeans.fit(self.eigenvecs[:, :n_vecs])
         return kmeans
 
@@ -302,7 +303,8 @@ def exec_it(sc_, root, original_sim_mx, sim_mx, original_dist_mx, dist_mx,
         max_cluster_label = max(clustering.values()) + 1
         counter = Counter(sc_.clustering.labels_)
         for idx, p in enumerate(leaves):
-            if counter[sc_.clustering.labels_[idx]] < min_samples:
+            # if counter[sc_.clustering.labels_[idx]] < min_samples: ### <-- original code
+            if counter[sc_.clustering.labels_[idx]] < min_pts: ### <-- Andrew change
                 clustering[p] = -1
             else:
                 clustering[p] = max_cluster_label + sc_.clustering.labels_[idx]

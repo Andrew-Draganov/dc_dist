@@ -97,7 +97,7 @@ def _make_tree(all_dists, labels, point_ids, path=''):
     root.count_children()
     return root
 
-def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=True, point_ids=None):
+def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=False, point_ids=None):
     dc_dists = get_nearest_neighbors(
         points,
         n_neighbors=n_neighbors,
