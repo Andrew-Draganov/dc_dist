@@ -114,6 +114,10 @@ def loadRealDatasets(to_load):
             points_landsat, labels_landsat = loadLandsat()
             points.append(points_landsat)
             labels.append(labels_landsat)
+        if datatype=='letters':
+            points_letters, labels_letters = loadLetters()
+            points.append(points_letters)
+            labels.append(labels_letters)
     
     return points, labels
 
@@ -185,7 +189,6 @@ def loadDrivface():
 def loadPendigits():
     # 7,494 instances (only training dataset), 16 dimensions, 10 classes
     data = pd.read_csv('./data/pendigits/pendigits.tra', header=None)
-
     points_pendigits, labels_pendigits, _ = np.hsplit(data, np.array([16, 17]))
     labels_pendigits = (np.array(labels_pendigits)).flatten()
     points_pendigits = points_pendigits.to_numpy()
@@ -207,6 +210,14 @@ def loadLandsat():
     labels_landsat = labels_landsat-1
        
     return points_landsat, labels_landsat
+
+def loadLetters():
+    # 20,000 instances, ?? dimensions, 26 classes
+    data = np.array(pd.read_csv('./data/letter_recognition/letter-recognition.data', header=None))
+    labels_letters, points_letters = np.hsplit(data, np.array([1]))
+    labels_letters = np.array([ord(i) - 65 for i in labels_letters.flatten()])
+    return points_letters, labels_letters
+    
 
 def reduceRealData_PCA_TSNE_UMAP(to_load, dims, reductiontype): 
     points_all_datasets, _ = loadRealDatasets(to_load)
@@ -279,8 +290,16 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance
      
     
 if __name__ == '__main__':
-    reduceSynthData(1, [2, 10, 50], 'cosine')
-    reduceSynthData(1, [2, 10, 50], 'manhattan')
+    
+    reduceRealDataMDS(['olivetti'], 0, [400], 'cosine')
+    reduceRealDataMDS(['olivetti'], 0, [400], 'manhattan')
+    
+    reduceRealDataMDS(['pendigits'], 0, [2, 10, 16], 'cosine')
+    reduceRealDataMDS(['pendigits'], 0, [2, 10, 16], 'manhattan')
+    
+    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'cosine')
+    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'manhattan')
+    
     
     
     
