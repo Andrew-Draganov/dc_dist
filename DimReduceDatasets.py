@@ -265,7 +265,7 @@ def calcUMAP(points_all_datasets, dims, datatypes):
 def reduceRealDataMDS(to_load, minPoints, dims, distance_metric):
     points_all_datasets, _ = loadRealDatasets(to_load)
     
-    calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims)
+    calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance_metric)
   
 def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance_metric):
     for dim in tqdm(dims):
