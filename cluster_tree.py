@@ -153,9 +153,13 @@ def finalize_clusters(clusters):
             cluster.peak = cluster.peak.parent
     return clusters
 
-def dc_kcenter(root, num_points, k, min_points):
+def dc_kcenter(root, num_points, k, min_points, with_noise=True):
     # k-center has the option of accounting for noise points
-    pruned_root = copy_tree(root, min_points)
+    if with_noise:
+        pruned_root = copy_tree(root, min_points)
+    else:
+        pruned_root = root
+
     clusters = cluster_tree(pruned_root, pruned_root, k=k, norm=np.inf)
     clusters = finalize_clusters(clusters)
     for cluster in clusters:
@@ -173,13 +177,12 @@ def get_cluster_metadata(clusters, num_points, k):
         else:
             centers[i] = cluster.center.orig_node.children[0].point_id
         for point in cluster.points:
-            print(point)
             pred_labels[point] = i
     epsilons = np.array([c.peak.dist for c in clusters])
 
     return pred_labels, centers, epsilons
 
-def dc_clustering(root, num_points, k=4, min_points=1, norm=2):
+def dc_clustering(root, num_points, k=4, min_points=1, norm=2, with_noise=False):
     # FIXME -- notes for later
     # 1) Shouldn't do k-means and k-median on pruned trees since the addition of new nodes would mess up the weighting
     #    It only makes sense for the pruned tree
@@ -187,7 +190,7 @@ def dc_clustering(root, num_points, k=4, min_points=1, norm=2):
     # 2.a) Using min_points = 0 gives some noise points still??
     # 3) k-median gives TONS of noise points for some reason. In groups that are way too large
     if norm < 0 or norm == np.inf:
-        clusters = dc_kcenter(root, num_points, k, min_points)
+        clusters = dc_kcenter(root, num_points, k, min_points, with_noise=with_noise)
     else:
         clusters = cluster_tree(root, root, k=k, norm=norm)
 

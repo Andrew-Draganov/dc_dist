@@ -15,7 +15,10 @@ class DensityTree:
         self.label = None
         self.point_id = None
 
-        self.orig_node = orig_node
+        if orig_node is not None:
+            self.orig_node = orig_node
+        else:
+            self.orig_node = self
         self.path = path
         self.parent = parent
 
