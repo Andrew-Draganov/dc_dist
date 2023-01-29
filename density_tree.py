@@ -3,6 +3,9 @@ from distance_metric import get_nearest_neighbors
 from tree_plotting import plot_tree
 import matplotlib.pyplot as plt
 
+import sys
+sys.setrecursionlimit(2000)
+
 class DensityTree:
     def __init__(self, dist, orig_node=None, path='', parent=None):
         self.dist = dist
@@ -51,7 +54,7 @@ class DensityTree:
                 else:
                     self.children += self.right_tree.children
         else:
-            self.children = []
+            self.children = [self]
 
     def __len__(self):
         return len(self.children)
@@ -80,6 +83,8 @@ def _make_tree(all_dists, labels, point_ids, path=''):
     if largest_dist == 0:
         root.label = labels[0]
         root.point_id = point_ids[0]
+        # FIXME -- do we need to make the leaf node have itself as a child?
+        root.children = [root]
         return root
 
     left_inds, right_inds = get_inds(all_dists, largest_dist)

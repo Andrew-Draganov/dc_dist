@@ -2,20 +2,21 @@ import numpy as np
 from density_tree import DensityTree
 
 class Cluster:
-    def __init__(self, center, points, cost, peak):
+    def __init__(self, center, points, peak):
         self.center = center
         self.points = points
-        self.cost = cost
         self.peak = peak
 
     def __len__(self):
         return len(self.points)
 
-def copy_tree(root, min_points):
+def copy_tree(root, min_points, pruned_parent=None):
     if len(root) >= min_points:
-        pruned_root = DensityTree(root.dist, orig_node=root, path=root.path, parent=root.parent)
-        pruned_root.set_left_tree(copy_tree(root.left_tree, min_points))
-        pruned_root.set_right_tree(copy_tree(root.right_tree, min_points))
+        pruned_root = DensityTree(root.dist, orig_node=root, path=root.path, parent=pruned_parent)
+        if root.left_tree is not None:
+            pruned_root.set_left_tree(copy_tree(root.left_tree, min_points, pruned_root))
+        if root.right_tree is not None:
+            pruned_root.set_right_tree(copy_tree(root.right_tree, min_points, pruned_root))
         pruned_root.count_children()
         return pruned_root
 
@@ -86,7 +87,6 @@ def merge_clusters(root, clusters, k, norm):
         # Merge the smaller cluster into the bigger cluster. Delete the smaller cluster.
         merge_receiver.peak = get_node(root, get_lca_path(merge_receiver.peak, to_be_merged.peak))
         merge_receiver.points += to_be_merged.points
-        merge_receiver.cost += len(to_be_merged) * dist ** 2
         clusters.pop(min_i)
 
     return clusters
@@ -96,11 +96,11 @@ def cluster_tree(root, subroot, k, norm):
         clusters = []
         # If this is a single leaf
         if subroot.is_leaf:
-            new_cluster = Cluster(subroot, [subroot], 0, subroot)
+            new_cluster = Cluster(subroot, [subroot], subroot)
             return [new_cluster]
         # Else this is a subtree and we want a cluster per leaf
         for leaf in subroot.children:
-            point_cluster = Cluster(leaf, [leaf], 0, leaf)
+            point_cluster = Cluster(leaf, [leaf], leaf)
             clusters.append(point_cluster)
 
         return clusters
@@ -113,17 +113,53 @@ def cluster_tree(root, subroot, k, norm):
     clusters = merge_clusters(root, clusters, k, norm)
     return clusters
 
-def deprune_clusters(clusters):
+def deprune_cluster(node):
     """ Find the cluster's maximum parent and set all the children of that node to be in the cluster """
-    depruned_clusters = []
+    if node.is_leaf:
+        return [node.point_id]
+
+    points = []
+    if node.left_tree is not None:
+        points += deprune_cluster(node.left_tree)
+    if node.right_tree is not None:
+        points += deprune_cluster(node.right_tree)
+
+    return points
+
+def finalize_clusters(clusters):
+    """ We could have the setting where
+          o
+         / \
+        o   o
+       /     \
+      X       X
+     / \     / \
+    o   o   o   o
+    is the pruned set of clusters, where X marks the peak of each cluster.
+    If that is the case, we actually want the following
+          o
+         / \
+        X   X
+       /     \
+      o       o
+     / \     / \
+    o   o   o   o
+    if the new X positions are still less than the maximum epsilon.
+    """
+    epsilons = np.array([c.peak.dist for c in clusters])
+    max_eps = np.max(epsilons[np.where(epsilons > 0)]) + 1e-8
     for cluster in clusters:
-        cluster.points = cluster.peak.orig_node.children
+        while cluster.peak.parent.dist < max_eps:
+            cluster.peak = cluster.peak.parent
+    return clusters
 
 def dc_kcenter(root, num_points, k, min_points):
     # k-center has the option of accounting for noise points
     pruned_root = copy_tree(root, min_points)
     clusters = cluster_tree(pruned_root, pruned_root, k=k, norm=np.inf)
-    deprune_clusters(clusters)
+    clusters = finalize_clusters(clusters)
+    for cluster in clusters:
+        cluster.points = deprune_cluster(cluster.peak.orig_node)
 
     return clusters
 
@@ -137,7 +173,8 @@ def get_cluster_metadata(clusters, num_points, k):
         else:
             centers[i] = cluster.center.orig_node.children[0].point_id
         for point in cluster.points:
-            pred_labels[point.point_id] = i
+            print(point)
+            pred_labels[point] = i
     epsilons = np.array([c.peak.dist for c in clusters])
 
     return pred_labels, centers, epsilons

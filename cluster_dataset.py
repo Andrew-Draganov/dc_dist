@@ -63,9 +63,6 @@ if __name__ == '__main__':
     points, labels = make_moons(n_samples=400, noise=0.1)
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
 
-    # TODO
-    #  - Figure out issue for k-center <=> dbscan on min_pts > 1
-
     root, dc_dists = make_tree(
         points,
         labels,

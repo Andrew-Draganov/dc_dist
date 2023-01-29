@@ -91,5 +91,5 @@ def compare_clusterings(points, labels):
     plt.show()
 
 if __name__ == '__main__':
-    g_points, g_labels = make_moons(n_samples=500, noise=0.05, random_state=42)
+    g_points, g_labels = make_moons(n_samples=500, noise=0.05)#, random_state=42)
     compare_clusterings(g_points, g_labels)
