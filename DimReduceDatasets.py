@@ -94,6 +94,10 @@ def loadRealDatasets(to_load):
             points_coil, labels_coil = loadCoil()
             points.append(points_coil)
             labels.append(labels_coil)
+        if datatype=='coil5':
+            points_coil5, labels_coil5 = loadCoil5()
+            points.append(points_coil5)
+            labels.append(labels_coil5)
         if datatype=='coil20':
             points_coil20, labels_coil20 = loadCoil20()
             points.append(points_coil20)
@@ -114,6 +118,10 @@ def loadRealDatasets(to_load):
             points_landsat, labels_landsat = loadLandsat()
             points.append(points_landsat)
             labels.append(labels_landsat)
+        if datatype=='letters':
+            points_letters, labels_letters = loadLetters()
+            points.append(points_letters)
+            labels.append(labels_letters)
     
     return points, labels
 
@@ -128,7 +136,7 @@ def loadOlivetti():
 def loadCoil():
     # 7,200 instances, 49152 dimensions, 100 classes
     points_coil = []
-    filelist = glob.glob('./data/coil-100/*.png')
+    filelist = sorted(glob.glob('./data/coil-100/*.png'))
     for filename in filelist:
         im = imageio.imread(filename)
         points_coil.append(im.flatten())
@@ -138,11 +146,25 @@ def loadCoil():
     labels_coil = labels_coil.to_numpy(dtype = int)-1
     
     return points_coil, labels_coil
-   
+ 
+def loadCoil5():
+    # 360 instances, 128*128 dimensions, 5 classes
+    points_coil5 = []
+    filelist = sorted(glob.glob('./data/coil-5/*.png'))
+    for filename in filelist:
+        im = imageio.imread(filename)
+        points_coil5.append(im.flatten())
+    labels_coil5 = pd.Series(filelist).str.extract("obj([0-9]+)", expand=False)
+    
+    points_coil5 = np.array(points_coil5)
+    labels_coil5 = labels_coil5.to_numpy(dtype = int)-1
+    
+    return points_coil5, labels_coil5    
+
 def loadCoil20():
     # 1,440 instances, 128*128 dimensions, 20 classes
     points_coil20 = []
-    filelist = glob.glob('./data/coil-20/*.png')
+    filelist = sorted(glob.glob('./data/coil-20/*.png'))
     for filename in filelist:
         im = imageio.imread(filename)
         points_coil20.append(im.flatten())
@@ -170,7 +192,7 @@ def loadSkins():
 def loadDrivface():
     # 606 instances, 640*480*3 dimensions, 3 classes
     points_drivface = []
-    filelist = glob.glob('./data/DrivFace/DrivImages/*.jpg')
+    filelist = sorted(glob.glob('./data/DrivFace/DrivImages/*.jpg'))
     for filename in filelist:
         im = imageio.imread(filename)
         points_drivface.append(im.flatten())
@@ -185,7 +207,6 @@ def loadDrivface():
 def loadPendigits():
     # 7,494 instances (only training dataset), 16 dimensions, 10 classes
     data = pd.read_csv('./data/pendigits/pendigits.tra', header=None)
-
     points_pendigits, labels_pendigits, _ = np.hsplit(data, np.array([16, 17]))
     labels_pendigits = (np.array(labels_pendigits)).flatten()
     points_pendigits = points_pendigits.to_numpy()
@@ -207,6 +228,14 @@ def loadLandsat():
     labels_landsat = labels_landsat-1
        
     return points_landsat, labels_landsat
+
+def loadLetters():
+    # 20,000 instances, ?? dimensions, 26 classes
+    data = np.array(pd.read_csv('./data/letter_recognition/letter-recognition.data', header=None))
+    labels_letters, points_letters = np.hsplit(data, np.array([1]))
+    labels_letters = np.array([ord(i) - 65 for i in labels_letters.flatten()])
+    return points_letters, labels_letters
+    
 
 def reduceRealData_PCA_TSNE_UMAP(to_load, dims, reductiontype): 
     points_all_datasets, _ = loadRealDatasets(to_load)
@@ -254,7 +283,7 @@ def calcUMAP(points_all_datasets, dims, datatypes):
 def reduceRealDataMDS(to_load, minPoints, dims, distance_metric):
     points_all_datasets, _ = loadRealDatasets(to_load)
     
-    calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims)
+    calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance_metric)
   
 def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance_metric):
     for dim in tqdm(dims):
@@ -279,8 +308,22 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance
      
     
 if __name__ == '__main__':
-    reduceSynthData(1, [2, 10, 50], 'cosine')
-    reduceSynthData(1, [2, 10, 50], 'manhattan')
+    reduceRealData_PCA_TSNE_UMAP(['drivface'], [2, 10, 606], 'pca')
+    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'cosine')
+    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'manhattan')
+    reduceRealDataMDS(['drivface'], 1, [2, 10, 606], 'ours')
+    reduceRealDataMDS(['drivface'], 5, [2, 10, 606], 'ours')
+    reduceRealDataMDS(['drivface'], 10, [2, 10, 606], 'ours')
+    
+    reduceRealData_PCA_TSNE_UMAP(['coil'], [2, 10, 7200], 'pca')
+    reduceRealDataMDS(['coil'], 0, [2, 10, 7200], 'cosine')
+    reduceRealDataMDS(['coil'], 0, [2, 10, 7200], 'manhattan')
+    reduceRealDataMDS(['coil'], 1, [2, 10, 7200], 'ours')
+    reduceRealDataMDS(['coil'], 5, [2, 10, 7200], 'ours')
+    reduceRealDataMDS(['coil'], 10, [2, 10, 7200], 'ours')
+    
+    
+    
     
     
     
