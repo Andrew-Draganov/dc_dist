@@ -32,7 +32,7 @@ class DBSCAN(object):
         self.labels_ = None
         self.type_ = cluster_type
 
-    def fit(self, data):
+    def fit(self, data, dist_mx=None):
         '''
         This method executes the DBSCAN algorithm on the attached
         dataset. First, it calculates the distances for each point
@@ -52,7 +52,8 @@ class DBSCAN(object):
         '''
         self.X = data
         m, dim = data.shape
-        dist_mx = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(data))
+        if dist_mx is None:
+            dist_mx = scipy.spatial.distance.squareform(scipy.spatial.distance.pdist(data))
         self.labels_ = np.full(m, np.nan)
         cluster_idx = 0
         for i in range(m):

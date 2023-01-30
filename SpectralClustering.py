@@ -349,11 +349,14 @@ def exec_eps(sc_, root, original_sim_mx, sim_mx, original_dist_mx, dist_mx,
     return clustering
 
 
-def get_sim_mx(dsnenns):
+def get_sim_mx(dsnenns, in_dict=True):
     e = 0  # 1e-15
 
     # get precomputed distances
-    dist_dsne = dsnenns['_all_dists']
+    if in_dict:
+        dist_dsne = dsnenns['_all_dists']
+    else:
+        dist_dsne = dsnenns
     dist_e = dist_dsne + e
     # normalized
     norm = dist_dsne / np.linalg.norm(dist_dsne)

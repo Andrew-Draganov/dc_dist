@@ -11,8 +11,10 @@ from density_tree import make_tree
 from cluster_tree import dc_clustering
 
 def k_vs_eps(points, labels):
+    # min_pts_list = [1, 3, 5, 7, 9]
     min_pts_list = [1, 3, 5, 7, 9]
-    k_list = [2, 6, 18, 54, 162]
+    # k_list = [2, 6, 18, 54, 162]
+    k_list = [2, 4, 6, 8, 10]
     epsilons = np.zeros((len(min_pts_list), len(k_list)))
     nmi_vals = np.zeros((len(min_pts_list), len(k_list)))
     nmi_size_scalar = 2000
@@ -44,11 +46,12 @@ def k_vs_eps(points, labels):
         scattered = plt.scatter(
             k_list,
             epsilons[i, :],
-            s=nmi_vals[i, :]*nmi_size_scalar,
+            # s=nmi_vals[i, :]*nmi_size_scalar,
+            s=100,
             c=colors[i],
             alpha=0.5
         )
-    plt.xscale('log')
+    # plt.xscale('log')
 
     # Draw a line for each min_pts
     for i, min_pts in enumerate(min_pts_list):
@@ -66,25 +69,33 @@ def k_vs_eps(points, labels):
     plt.scatter(
         np.array(k_list)[max_inds],
         [epsilons[i, max_inds[i]] for i in range(len(max_inds))],
-        [nmi_vals[i, max_inds[i]] * nmi_size_scalar for i in range(len(max_inds))],
+        # s=[nmi_vals[i, max_inds[i]] * nmi_size_scalar for i in range(len(max_inds))],
+        s=100,
         facecolors='none',
         edgecolors='red',
         alpha=0.75,
         linewidths=3,
-        linestyles='dashed'
+        # linestyles='dashed'
     )
-    plt.xticks(k_list, ['2', '6', '18', '54', '162'])
+    plt.xticks(k_list, [str(k) for k in k_list])
     axis = plt.gca()
 
     color_handles = [plt.Rectangle((0, 0), 1, 1, color=color) for color in colors]
     color_legend = axis.legend(color_handles, [r'$\mu=$ {}'.format(str(min_pts)) for min_pts in min_pts_list], loc='upper right')
     axis.add_artist(color_legend)
 
-    legend_info = scattered.legend_elements("sizes", num=5)
-    nmi_sizes = [0.2, 0.3, 0.4, 0.5]
-    plt.legend(legend_info[0], ['nmi={}'.format(nmi) for nmi in nmi_sizes], loc='upper left')
+    # legend_info = scattered.legend_elements("sizes", num=5)
+    # nmi_sizes = [0.2, 0.3, 0.4, 0.5]
+    # plt.legend(legend_info[0], ['nmi={}'.format(nmi) for nmi in nmi_sizes], loc='upper left')
     plt.show()
 
 if __name__ == '__main__':
-    g_points, g_labels = get_dataset('coil', class_list=np.arange(11, 31), points_per_class=36)
-    k_vs_eps(g_points, g_labels, 'coil')
+    # g_points, g_labels = get_dataset('coil', class_list=np.arange(11, 31), points_per_class=36)
+    # g_points, g_labels = make_moons(n_samples=1000, noise=0.15, random_state=44)
+    g_points, g_labels = make_circles(
+        n_samples=500,
+        noise=0.15,
+        radii=[0.5, 1.0, 1.5, 2.0, 2.5, 3],
+        thicknesses=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+    )
+    k_vs_eps(g_points, g_labels)

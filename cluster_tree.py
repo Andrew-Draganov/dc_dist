@@ -182,7 +182,7 @@ def get_cluster_metadata(clusters, num_points, k):
 
     return pred_labels, centers, epsilons
 
-def dc_clustering(root, num_points, k=4, min_points=1, norm=2, with_noise=False):
+def dc_clustering(root, num_points, k=4, min_points=1, norm=2, with_noise=True):
     # FIXME -- notes for later
     # 1) Shouldn't do k-means and k-median on pruned trees since the addition of new nodes would mess up the weighting
     #    It only makes sense for the pruned tree
