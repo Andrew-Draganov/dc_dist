@@ -17,7 +17,8 @@ from sklearn.decomposition import PCA
 from sklearn.datasets import make_blobs, fetch_olivetti_faces
 
 from distance_metric import get_nearest_neighbors
-from sklearn.metrics.pairwise import cosine_distances, manhattan_distances
+from sklearn.metrics.pairwise import euclidean_distances, cosine_distances, manhattan_distances
+from sklearn.cluster import OPTICS
 
 from GDR import GradientDR
 
@@ -297,6 +298,17 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance
                 distance_matrix = cosine_distances(points)
             if distance_metric == 'manhattan':
                 distance_matrix = manhattan_distances(points)
+            if distance_metric == 'mutualReachability':
+                # mutual_reachability = max(core(a), core(b), dist(a, b))
+                n = points.shape[0]
+                euclidean = euclidean_distances(points)
+                optics = OPTICS(min_samples=minPoints).fit(points)
+                optics_cores = optics.core_distances_
+                core_distances_1 = np.full((n, n), optics_cores)
+                core_distances_2 = core_distances_1.T
+                
+                core_distances = np.maximum(core_distances_1, core_distances_2)
+                distance_matrix = np.maximum(core_distances, euclidean)
                 
             reducedData = MDS(n_components=dim).fit_transform(distance_matrix)
         
@@ -307,20 +319,9 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance
   
      
     
-if __name__ == '__main__':
-    reduceRealData_PCA_TSNE_UMAP(['drivface'], [2, 10, 606], 'pca')
-    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'cosine')
-    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'manhattan')
-    reduceRealDataMDS(['drivface'], 1, [2, 10, 606], 'ours')
-    reduceRealDataMDS(['drivface'], 5, [2, 10, 606], 'ours')
-    reduceRealDataMDS(['drivface'], 10, [2, 10, 606], 'ours')
-    
-    reduceRealData_PCA_TSNE_UMAP(['coil'], [2, 10, 7200], 'pca')
-    reduceRealDataMDS(['coil'], 0, [2, 10, 7200], 'cosine')
-    reduceRealDataMDS(['coil'], 0, [2, 10, 7200], 'manhattan')
-    reduceRealDataMDS(['coil'], 1, [2, 10, 7200], 'ours')
-    reduceRealDataMDS(['coil'], 5, [2, 10, 7200], 'ours')
-    reduceRealDataMDS(['coil'], 10, [2, 10, 7200], 'ours')
+if __name__ == '__main__': 
+    to_load = ['coil', 'pendigits', 'drivface', 'olivetti']
+    reduceRealDataMDS(to_load, 5, [2, 10], 'mutualReachability')
     
     
     
