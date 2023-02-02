@@ -1,4 +1,3 @@
-# __author__ = "Christian Frey"
 from collections import Counter
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -31,7 +30,7 @@ class SpectralClustering_own(object):
 
     def _calc_kmeans(self, n_cluster, n_vecs):
         # kmeans = KMeans(n_clusters=n_cluster, n_init='auto') ### <-- Original code
-        kmeans = KMeans(n_clusters=n_cluster, n_init=5) ### <-- Andrew change 
+        kmeans = KMeans(n_clusters=n_cluster, n_init=5)
         kmeans.fit(self.eigenvecs[:, :n_vecs])
         return kmeans
 
@@ -304,7 +303,7 @@ def exec_it(sc_, root, original_sim_mx, sim_mx, original_dist_mx, dist_mx,
         counter = Counter(sc_.clustering.labels_)
         for idx, p in enumerate(leaves):
             # if counter[sc_.clustering.labels_[idx]] < min_samples: ### <-- original code
-            if counter[sc_.clustering.labels_[idx]] < min_pts: ### <-- Andrew change
+            if counter[sc_.clustering.labels_[idx]] < min_pts:
                 clustering[p] = -1
             else:
                 clustering[p] = max_cluster_label + sc_.clustering.labels_[idx]
