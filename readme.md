@@ -14,4 +14,4 @@ To run it, simply clone the repo and, in a virtual environment, call `pip instal
 You will have to download the coil-100 dataset from [here](https://www.kaggle.com/datasets/jessicali9530/coil100) and unpack it
 into the path `data/coil-100`.
 
-Feel free to email me if you have any questions -- draganovandrew@cs.au.dk
+Feel free to email me if you have any questions -- anonymous

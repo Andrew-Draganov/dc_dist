@@ -76,6 +76,7 @@ def plot_tree(root, labels):
     nx.draw_networkx_nodes(G, pos=pos_dict, node_color=color_list, alpha=alpha_list)
     nx.draw_networkx_edges(G, pos=pos_dict)
     nx.draw_networkx_labels(G, pos=pos_dict, labels=dist_dict)
+    plt.savefig("tree.png")
     plt.show()
 
 
