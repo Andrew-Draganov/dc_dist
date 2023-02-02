@@ -78,7 +78,7 @@ def getclosest (pos, points, startdist, d):
     
 # Seed Spreader improved on description from DBSCAN Revisited: Mis-Claim, Un-Fixability, and Approximation by Junhao Gan and Yufei Tao
 def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_subspace,
-                    num_connections, con_density, seed, vardensity):
+                    num_connections, con_density, seed, vardensity, shiftwidth, numwidth, len_con):
     set_seed(seed)
     datanum = 0
     pos = np.random.random(d) * domain_size
@@ -130,7 +130,7 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
     
     while datanum < nonoise:
         corecounter = corecounter + 1
-        c_rand_reset = np.ceil(np.random.normal(c_reset, 2, 1)).astype('int32')
+        c_rand_reset = np.ceil(np.random.normal(c_reset, numwidth, 1)).astype('int32')
         runlength = max(min(c_rand_reset[0], nonoise-datanum), c_reset/10)
         
         if (runlength >= restarts[clunum-1] - datanum and clunum <= cln-1):
@@ -177,7 +177,7 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
             shift_dir = np.random.random(d) - 0.5
             pos_old = pos
             r_shift_i = r_shift * clufactors[clunum-1]
-            pos = pos_old + (shift_dir/(np.sum((shift_dir*2)**2) **(0.5))*np.random.normal(r_shift_i, 2, 1))
+            pos = pos_old + (shift_dir/(np.sum((shift_dir*2)**2) **(0.5))*np.random.normal(r_shift_i, shiftwidth, 1))
             attempts = 0
             while(tooclose(pos, clunum-1, center_store_other, center_clunum, clufactors, (r_sphere*2.5), d)):
                 if (attempts > 100):
@@ -186,7 +186,7 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
                     print("reset to startpos")
                 #print("tooclose")
                 shift_dir = np.random.random(d) - 0.5
-                pos = pos_old + (shift_dir/(np.sum(shift_dir**2) **(0.5))*np.random.normal(r_shift, 2, 1))
+                pos = pos_old + (shift_dir/(np.sum(shift_dir**2) **(0.5))*np.random.normal(r_shift, shiftwidth, 1))
                 attempts = attempts + 1
 
     data = np.array(data)
@@ -237,7 +237,7 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
     r_outlier = r_sphere
     
     for n in noise:
-        if (tooclose(n, -1, center_store_other_shift, center_clunum, clufactors, r_outlier*1.5, d)):
+        if (tooclose(n, -1, center_store_other_shift, center_clunum, clufactors, r_outlier, d)):
             closestcore = getclosest(n, center_store_other_shift, r_outlier*8, d)
             n[-1] = center_clunum[closestcore]
     
@@ -266,10 +266,14 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
         newcenter = startpoint
 
         dist = np.sum((target - newcenter) ** 2) ** (0.5)
-        while (dist > r_shift):
+        
+        con_shift = r_shift * len_con
+        con_sphere = r_shift * len_con
+        
+        while (dist > con_shift/2):
             shift_dir = target - newcenter
-            newcenter = newcenter + (shift_dir / (np.sum(shift_dir ** 2) ** (0.5)) * np.random.normal(r_shift, 2, 1))
-            newpoints = random_ball_num_noclu(newcenter, r_sphere, d, con_density)
+            newcenter = newcenter + (shift_dir / (np.sum(shift_dir ** 2) ** (0.5)) * np.random.normal(con_shift, 2, 1))
+            newpoints = random_ball_num_noclu(newcenter, con_sphere, d, con_density)
 
             target = stoppoints[np.random.choice(len(stoppoints), 1)][0]
             curconpoints.extend(newpoints.tolist())
@@ -277,14 +281,18 @@ def spreader_improv(n, d, cln, c_reset, min_size, num_noise, domain_size, r_sphe
                 dist = min(dist, np.sum((pottarget - newcenter) ** 2) ** (0.5))
 
         #print(curconpoints[0])
+        #for point in curconpoints:
+        #    dist = r_outlier * 2
+        #    for potstart in startpoints:
+        #        dist = min(dist, np.sum((potstart - point) ** 2) ** (0.5))
+        #    if (dist > r_shift/2):
+        #        # if(True):
+        #       conpoints.append(point)
+         #       
         for point in curconpoints:
-            dist = r_outlier * 2
-            for potstart in startpoints:
-                dist = min(dist, np.sum((potstart - point) ** 2) ** (0.5))
-            if (dist > r_shift):
-                # if(True):
+            if not (tooclose(point, -1, center_store_other_shift, center_clunum, clufactors, r_outlier, d)):
                 conpoints.append(point)
-
+                
         print("Connection " + str(i+1) + " built")
 
     conpoints_array = np.column_stack((conpoints, [-1] * len(conpoints)))
@@ -311,6 +319,10 @@ def run(args):
     num_noise = int (math.ceil(0.001 * num_nonoise))
     min_sub = dim
     vardensity = False
+    
+    shiftwidth = 2
+    numwidth = 2
+    len_con = 1
 
     if(len(args) > 5):
         if args[5] == "true" or args[5] == "True" or args[5] == '1':
@@ -326,36 +338,45 @@ def run(args):
         r_shift = int(args[8])
 
 
-    if (len (args) > 10):
+    if (len (args) > 11):
         num_con = int(args[9])
         den_con = int(args[10])
+        len_con = float(args[11])
 
 
-    if (len (args) > 11):
-        min_sub = int(args[11])
+    if (len (args) > 12):
+        min_sub = int(args[12])
+        
+    if (len (args) > 14):
+        shiftwidth = float(args[13])
+        numwidth = float(args[14])
 
     min_size = int(math.ceil(num_nonoise / cln**2))
 
     num = num_nonoise + num_noise
     domain_size = 500
-    synthdata, centers = spreader_improv(num, dim, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_sub, num_con, den_con, seed, vardensity)
+    synthdata, centers = spreader_improv(num, dim, cln, c_reset, min_size, num_noise, domain_size, r_sphere, r_shift, min_sub, num_con, den_con, seed, vardensity, shiftwidth, numwidth, len_con)
     path = "data/synth"
         
     filename = "synth_data_" + str(num) + "_" + str(cln) + "_" + str(dim) + "_"
     if vardensity:
          filename = filename + "vardensity_"
+    if num_con > 0:
+         filename = filename + "connected_" + str(num_con) + "_" + str(den_con) + "_" + str(len_con) + "_"
     filename = filename + str(seed) + ".npy"
     np.save(os.path.join(path, filename), synthdata)
     
-    color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
-    plt.figure(figsize=(15,15))
-    plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.4)
-    plt.scatter(centers[:,0], centers[:,1], c='black', alpha=1)
+    
+    if(dim == 2):
+        color = plt.cm.tab20(np.linspace(0, 1, np.max(synthdata[:,-1]).astype('int32') +2))
+        plt.figure(figsize=(15,15))
+        plt.scatter(synthdata[:,0], synthdata[:,1], c=color[synthdata[:,2].astype('int32')], alpha=0.4)
+        plt.scatter(centers[:,0], centers[:,1], c='black', alpha=1)
 
-    plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
-    plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
+        plt.ylim(np.min(synthdata[:,1]-100), np.max(synthdata[:,1]+100))
+        plt.xlim(np.min(synthdata[:,0]-100), np.max(synthdata[:,0]+100))
 
-    plt.show()
+        plt.show()
 
 if __name__ == '__main__':
     args = sys.argv
