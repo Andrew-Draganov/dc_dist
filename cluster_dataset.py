@@ -37,7 +37,7 @@ if __name__ == '__main__':
         '--n-neighbors',
         type=int,
         default=15,
-        help='Dummy variable for compatibility with UMAP/tSNE distance calculation'
+        help=''
     )
     parser.add_argument(
         '--plot-tree',

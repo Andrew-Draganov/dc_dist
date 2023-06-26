@@ -8,19 +8,15 @@ from distance_metric import get_nearest_neighbors
 from density_tree import make_tree
 from cluster_tree import dc_clustering
 
-# Want to make a heatmap of the distance to a chosen point in a given dataset
-# Show the k-center clustering
-# Show the dbscan clustering with that epsilon
-
 def distance_plot():
     plt.rcParams.update({'font.size': 10, 'text.usetex': True})
     fig, ax = plt.subplots(nrows=1, ncols=3)
     fig.set_figheight(6)
     fig.set_figwidth(12)
     num_points = 200
-    range_length = 25
+    range_length = 10
     star_pt_index = 50
-    min_pts = 1
+    min_pts = 3
     k = 4
     cmap = np.array(['red', 'blue', 'green', 'yellow', 'orange', 'brown', 'black', 'purple'])
 
@@ -42,7 +38,6 @@ def distance_plot():
         num_points=num_points,
         k=k,
         min_points=min_pts,
-        norm=-1
     )
     sorted_eps = np.sort(epsilons)
     levels = [
@@ -76,11 +71,8 @@ def distance_plot():
             for i, center_ind in enumerate(centers):
                 center_dists[x, y, i] = dc_dists[-1, center_ind]
 
-    # cf_plot = ax[0].imshow(star_dists, cmap='hot', interpolation='bilinear')
     cf_plot = ax[0].contourf(X, Y, star_dists)
 
-    # c_plot = ax[0].contour(X, Y, star_dists, levels=[max_eps], colors=('k',), linestyles=('-',), linewidths=(2,))
-    # ax[0].clabel(c_plot, fmt = '%2.1d', colors='k', fontsize=14) #contour line labels
     ax[0].scatter(points[:, 1], points[:, 0], s=5)
     ax[0].scatter(points[star_pt_index, 1], points[star_pt_index, 0], c='r', marker='*', s=25)
     plt.colorbar(cf_plot, ax=ax[0], shrink=0.8, extend='both', location='left')
@@ -111,7 +103,6 @@ def distance_plot():
     plt.colorbar(cf_plot, ax=ax[2], shrink=0.8, extend='both', location='right')
 
     plt.show()
-
 
 
 def plot_dbscan(X, dbscan, ax, flag_plotBorderPts=False):
@@ -153,23 +144,4 @@ def plot_dbscan(X, dbscan, ax, flag_plotBorderPts=False):
 
 
 if __name__ == '__main__':
-    # distance_plot()  # <- Andrew
-
-    # Plotting Border pts
-    # generate dataset
-    X, y_true = make_moons(n_samples=100, noise=0.05, random_state=123)
-    # apply DBSCAN
-    dbscan = DBSCAN(eps=0.2, min_samples=5)
-    dbscan_res = dbscan.fit_predict(X)
-    # init plot
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 8))
-    ax1 , ax2 = axes
-    # plot raw data
-    ax1.scatter(X[:, 0], X[:, 1], c=y_true, s=25, cmap='viridis')
-    ax1.set_title("raw dataset")
-    ax1.set_xlabel("1st feature")
-    ax1.set_ylabel("2nd feature")
-    # plot DBSCAN result
-    plot_dbscan(X, dbscan, ax2, flag_plotBorderPts=True)
-    # save fig
-    fig.savefig("dbscan_result.png")
+    distance_plot()
