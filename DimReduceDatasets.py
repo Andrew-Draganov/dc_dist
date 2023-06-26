@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Jan  6 17:09:07 2023
-
-@author: Ellen
-"""
 
 import numpy as np
 import pandas as pd
 import imageio
 import glob
+
+from sklearn.utils import gen_batches, get_chunk_n_rows
+from sklearn.neighbors import NearestNeighbors
 
 from tqdm import tqdm
 from sklearn.manifold import MDS
@@ -17,7 +15,8 @@ from sklearn.decomposition import PCA
 from sklearn.datasets import make_blobs, fetch_olivetti_faces
 
 from distance_metric import get_nearest_neighbors
-from sklearn.metrics.pairwise import cosine_distances, manhattan_distances
+from sklearn.metrics.pairwise import euclidean_distances, cosine_distances, manhattan_distances
+from sklearn.cluster import OPTICS
 
 from GDR import GradientDR
 
@@ -29,11 +28,11 @@ def reduceSynthData(minPoints, dim, distance_metric):
     calcReductionSynth(minPoints, points_all_datasets, dim, distance_metric)
   
 def loadSynthDatasets():
-    points_b1, labels_b1 = make_blobs(n_samples=10000, centers=10, n_features=50, random_state=1)
+    #points_b1, labels_b1 = make_blobs(n_samples=10000, centers=10, n_features=50, random_state=1)
    
     # make unbalanced blobs (b2)
-    cluster_numbers_blobs_unbalanced = [882, 1577, 913, 1335, 539, 703, 1393, 744, 803, 1111]
-    points_b2, labels_b2 = make_blobs(n_samples=cluster_numbers_blobs_unbalanced, centers=None, n_features=50, random_state=1)
+    #cluster_numbers_blobs_unbalanced = [882, 1577, 913, 1335, 539, 703, 1393, 744, 803, 1111]
+    #points_b2, labels_b2 = make_blobs(n_samples=cluster_numbers_blobs_unbalanced, centers=None, n_features=50, random_state=1)
 
     # load unbalanced blobs with uniforn noise (b3)  
     dataset_blobs_unbalanced_noise = np.load("./data/synth/blobs_unbalanced_noise.npy")
@@ -51,7 +50,8 @@ def loadSynthDatasets():
     dataset_diff_dens_noise = np.load("./data/synth/synth_data_10000_10_50_vardensity_1000_0.npy")
     points_d3 = dataset_diff_dens_noise[:, :-1]
     
-    points = [points_b1, points_b2, points_b3, points_d1, points_d2, points_d3]
+    #points = [points_b1, points_b2, points_b3, points_d1, points_d2, points_d3]
+    points = [points_b3, points_d1, points_d2, points_d3]
     
     return points  
   
@@ -66,6 +66,17 @@ def calcReductionSynth(minPoints, points_all_datasets, dim, distance_metric):
                 distance_matrix = cosine_distances(points)
             if distance_metric == 'manhattan':
                 distance_matrix = manhattan_distances(points)
+            if distance_metric == 'mutualReachability':
+                # mutual_reachability = max(core(a), core(b), dist(a, b))
+                n = points.shape[0]
+                euclidean = euclidean_distances(points)
+                nbrs = NearestNeighbors(n_neighbors=minPoints).fit(points)
+                core_distances = _compute_core_distances_(points, nbrs, minPoints, None)
+                core_distances_1 = np.full((n, n), core_distances)
+                core_distances_2 = core_distances_1.T
+                
+                core_distances = np.maximum(core_distances_1, core_distances_2)
+                distance_matrix = np.maximum(core_distances, euclidean)
             
             reducedData = MDS(n_components=dim[i]).fit_transform(distance_matrix)
             
@@ -297,6 +308,17 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance
                 distance_matrix = cosine_distances(points)
             if distance_metric == 'manhattan':
                 distance_matrix = manhattan_distances(points)
+            if distance_metric == 'mutualReachability':
+                # mutual_reachability = max(core(a), core(b), dist(a, b))
+                n = points.shape[0]
+                euclidean = euclidean_distances(points)
+                nbrs = NearestNeighbors(n_neighbors=minPoints).fit(points)
+                optics_cores = _compute_core_distances_(points, nbrs, minPoints, None)
+                core_distances_1 = np.full((n, n), optics_cores)
+                core_distances_2 = core_distances_1.T
+                
+                core_distances = np.maximum(core_distances_1, core_distances_2)
+                distance_matrix = np.maximum(core_distances, euclidean)
                 
             reducedData = MDS(n_components=dim).fit_transform(distance_matrix)
         
@@ -304,24 +326,44 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance
             #filename = "../reducedRealDatasets/mds_ours_"+str(dim)+"_"+str(minPoints)+"_"+str(dataType)+".txt"
             with open(filename, 'w') as f:
                 f.write(str(reducedData.tolist()))    
-  
+
+def _compute_core_distances_(X, neighbors, min_samples, working_memory):
+    """ COPIED FROM SKLEARN"""
+    """Compute the k-th nearest neighbor of each sample.
+    Equivalent to neighbors.kneighbors(X, self.min_samples)[0][:, -1]
+    but with more memory efficiency.
+    Parameters
+    ----------
+    X : array-like of shape (n_samples, n_features)
+        The data.
+    neighbors : NearestNeighbors instance
+        The fitted nearest neighbors estimator.
+    working_memory : int, default=None
+        The sought maximum memory for temporary distance matrix chunks.
+        When None (default), the value of
+        ``sklearn.get_config()['working_memory']`` is used.
+    Returns
+    -------
+    core_distances : ndarray of shape (n_samples,)
+        Distance at which each sample becomes a core point.
+        Points which will never be core have a distance of inf.
+    """
+    n_samples = X.shape[0]
+    core_distances = np.empty(n_samples)
+    core_distances.fill(np.nan)
+
+    chunk_n_rows = get_chunk_n_rows(
+        row_bytes=16 * min_samples, max_n_rows=n_samples, working_memory=working_memory
+    )
+    slices = gen_batches(n_samples, chunk_n_rows)
+    for sl in slices:
+        core_distances[sl] = neighbors.kneighbors(X[sl], min_samples)[0][:, -1]
+    return core_distances
      
     
-if __name__ == '__main__':
-    reduceRealData_PCA_TSNE_UMAP(['drivface'], [2, 10, 606], 'pca')
-    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'cosine')
-    reduceRealDataMDS(['drivface'], 0, [2, 10, 606], 'manhattan')
-    reduceRealDataMDS(['drivface'], 1, [2, 10, 606], 'ours')
-    reduceRealDataMDS(['drivface'], 5, [2, 10, 606], 'ours')
-    reduceRealDataMDS(['drivface'], 10, [2, 10, 606], 'ours')
-    
-    reduceRealData_PCA_TSNE_UMAP(['coil'], [2, 10, 7200], 'pca')
-    reduceRealDataMDS(['coil'], 0, [2, 10, 7200], 'cosine')
-    reduceRealDataMDS(['coil'], 0, [2, 10, 7200], 'manhattan')
-    reduceRealDataMDS(['coil'], 1, [2, 10, 7200], 'ours')
-    reduceRealDataMDS(['coil'], 5, [2, 10, 7200], 'ours')
-    reduceRealDataMDS(['coil'], 10, [2, 10, 7200], 'ours')
-    
+if __name__ == '__main__': 
+    #reduceRealDataMDS(['pendigits', 'coil'], 5, [2, 10], 'mutualReachability')
+    reduceSynthData(5, [2, 10], 'mutualReachability')
     
     
     
