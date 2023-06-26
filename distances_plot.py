@@ -42,7 +42,6 @@ def distance_plot():
         num_points=num_points,
         k=k,
         min_points=min_pts,
-        norm=-1
     )
     sorted_eps = np.sort(epsilons)
     levels = [
@@ -153,23 +152,4 @@ def plot_dbscan(X, dbscan, ax, flag_plotBorderPts=False):
 
 
 if __name__ == '__main__':
-    # distance_plot()  # <- Andrew
-
-    # Plotting Border pts
-    # generate dataset
-    X, y_true = make_moons(n_samples=100, noise=0.05, random_state=123)
-    # apply DBSCAN
-    dbscan = DBSCAN(eps=0.2, min_samples=5)
-    dbscan_res = dbscan.fit_predict(X)
-    # init plot
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 8))
-    ax1 , ax2 = axes
-    # plot raw data
-    ax1.scatter(X[:, 0], X[:, 1], c=y_true, s=25, cmap='viridis')
-    ax1.set_title("raw dataset")
-    ax1.set_xlabel("1st feature")
-    ax1.set_ylabel("2nd feature")
-    # plot DBSCAN result
-    plot_dbscan(X, dbscan, ax2, flag_plotBorderPts=True)
-    # save fig
-    fig.savefig("dbscan_result.png")
+    distance_plot()  # <- Andrew

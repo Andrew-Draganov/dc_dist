@@ -40,13 +40,14 @@ def compare_clusterings():
             labels,
             min_points=min_pts,
         )
-        # Calculate kcenter clustering
+        ###########################################
+        # Calculate kcenter clustering on dc_dist #
+        ###########################################
         noise_labels, _, noise_epsilons = dc_clustering(
             root,
             num_points=len(labels),
             k=k,
             min_points=min_pts,
-            norm=np.inf
         )
 
         # Calculate kcenter clustering without noise
@@ -55,7 +56,6 @@ def compare_clusterings():
             num_points=len(labels),
             k=k,
             min_points=min_pts,
-            norm=np.inf,
             with_noise=False
         )
         euc_dist_matrix = get_dist_matrix(points, 'euclidean')
@@ -67,11 +67,9 @@ def compare_clusterings():
         # Get epsilon given by k-center clustering
         no_noise_eps = np.max(no_noise_epsilons[np.where(no_noise_epsilons > 0)]) + 1e-8
 
-
-
-
-
-        # Calculate spectral clustering
+        ############################################
+        # Calculate spectral clustering on dc_dist #
+        ############################################
         dsnenns = get_nearest_neighbors(points, 15, min_points=min_pts)
         dist_dsne = dsnenns['_all_dists']
         no_lambdas = get_lambdas(root, noise_eps)
@@ -83,7 +81,7 @@ def compare_clusterings():
             eps=noise_eps,
             it=no_lambdas,
             min_pts=min_pts,
-            n_clusters=4,
+            n_clusters=k,
             type_="it"
         )
 
@@ -96,10 +94,10 @@ def compare_clusterings():
             root,
             sim,
             euc_dist_matrix,
-            eps=noise_eps, # FIXME -- what should eps be?
+            eps=noise_eps,
             it=no_lambdas,
             min_pts=min_pts,
-            n_clusters=4,
+            n_clusters=k,
             type_="it"
         )
 
@@ -252,6 +250,8 @@ def euc_dist(p1, p2):
     return np.sqrt(np.sum(np.square(p1 - p2)))
 
 def approx_kcenter(dist_matrix, k):
+    # The basic 2-approx for k-center in any metric:
+    # "Always sample the farthest point from the current set of centers"
     assert k > 0
     n = len(dist_matrix)
     centers = np.zeros(k, dtype=np.int32)
@@ -368,7 +368,6 @@ def visualize_diffs(points, labels):
         num_points=len(labels),
         k=k,
         min_points=min_pts,
-        norm=np.inf
     )
     for j in range(len(axes[0])):
         axes[-1, j].scatter(points[:, 0], points[:, 1], c=noise_labels, s=10, alpha=0.8)
@@ -399,13 +398,3 @@ def visualize_diffs(points, labels):
 
 if __name__ == '__main__':
     compare_clusterings()
-
-
-    # g_points, g_labels = make_moons(n_samples=500, noise=0.1, random_state=44)
-    # g_points, g_labels = make_circles(
-    #     n_samples=500,
-    #     noise=0.01,
-    #     radii=[0.5, 1.0, 1.5, 2.0, 2.5, 3],
-    #     thicknesses=[0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-    # )
-    # visualize_diffs(g_points, g_labels)
