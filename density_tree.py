@@ -36,7 +36,7 @@ class DensityTree:
     def has_right_tree(self):
         return self.right_tree is not None
 
-    #@property
+    @property
     def is_leaf(self):
         return not (self.has_left_tree or self.has_right_tree)
 
@@ -122,42 +122,3 @@ def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=False, po
 
     return root, dc_dists
 
-
-
-if __name__ == '__main__':
-    from sklearn.datasets import make_blobs, make_moons
-
-    # --- Data settings ---
-    n = 500
-    d = 2
-    n_clusters = 4
-    noise = 0.6
-
-    #### Anna Discord
-    n = 25
-    d = 2
-    n_clusters = 1
-    ###
-
-    #
-
-    # create data
-#    X, y_true = make_blobs(n_samples=n, n_features=d, centers=n_clusters, cluster_std=noise, shuffle=False, random_state=563)
-    X, y_true = make_blobs(n_samples=n, n_features=d, centers=n_clusters, cluster_std=noise, shuffle=False,
-                           random_state=1012)
-
-    #plt.scatter(X[:,0], X[:, 1] , c=y_true)
-    #plt.show()
-    # X, y_true = make_moons(n_samples=100, noise=0.05)
-
-    y_true = np.array([1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1])
-    y_true = np.array([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1])
-    ### Counter example
-    n = 75
-    d = 2
-    n_clusters = 2
-    X, y_true = make_blobs(n_samples=n, n_features=d, centers=n_clusters, cluster_std=noise, shuffle=False,
-                           random_state=666)
-
-    root, dc_dist = make_tree(X, y_true)
-    a = 0

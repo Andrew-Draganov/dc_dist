@@ -364,14 +364,3 @@ def _compute_core_distances_(X, neighbors, min_samples, working_memory):
 if __name__ == '__main__': 
     #reduceRealDataMDS(['pendigits', 'coil'], 5, [2, 10], 'mutualReachability')
     reduceSynthData(5, [2, 10], 'mutualReachability')
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
