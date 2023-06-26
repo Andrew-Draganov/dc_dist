@@ -37,18 +37,13 @@ def get_lca_path(left, right):
             break
     return left.path[:depth]
 
-def merge_costs(dist, c1, c2, norm):
-    if norm >= 0 and norm != np.inf:
-        merge_right_cost = len(c1) * dist ** norm
-        merge_left_cost = len(c2) * dist ** norm
-    else:
-        assert norm == np.inf
-        merge_right_cost = dist
-        merge_left_cost = dist
+def merge_costs(dist, c1, c2):
+    merge_right_cost = dist
+    merge_left_cost = dist
 
     return merge_right_cost, merge_left_cost
 
-def merge_clusters(root, clusters, k, norm):
+def merge_clusters(root, clusters, k):
     while len(clusters) > k:
         # Placeholder variables to find best merge location
         min_cost = np.inf
@@ -65,12 +60,7 @@ def merge_clusters(root, clusters, k, norm):
             # Get cost of merging between left and right clusters
             parent_path = get_lca_path(left, right)
             dist = get_node(root, parent_path).dist
-            merge_right_cost, merge_left_cost = merge_costs(
-                dist,
-                clusters[i],
-                clusters[i+1],
-                norm
-            )
+            merge_right_cost, merge_left_cost = merge_costs(dist, clusters[i], clusters[i+1])
 
             # Track all necessary optimal merge parameters
             if min(merge_right_cost, merge_left_cost) < min_cost:
@@ -91,7 +81,7 @@ def merge_clusters(root, clusters, k, norm):
 
     return clusters
                 
-def cluster_tree(root, subroot, k, norm):
+def cluster_tree(root, subroot, k):
     if len(subroot) <= k:
         clusters = []
         # If this is a single leaf
@@ -107,10 +97,10 @@ def cluster_tree(root, subroot, k, norm):
 
     clusters = []
     if subroot.has_left_tree:
-        clusters += cluster_tree(root, subroot.left_tree, k, norm)
+        clusters += cluster_tree(root, subroot.left_tree, k)
     if subroot.has_right_tree:
-        clusters += cluster_tree(root, subroot.right_tree, k, norm)
-    clusters = merge_clusters(root, clusters, k, norm)
+        clusters += cluster_tree(root, subroot.right_tree, k)
+    clusters = merge_clusters(root, clusters, k)
     return clusters
 
 def deprune_cluster(node):
@@ -160,7 +150,7 @@ def dc_kcenter(root, num_points, k, min_points, with_noise=True):
     else:
         pruned_root = root
 
-    clusters = cluster_tree(pruned_root, pruned_root, k=k, norm=np.inf)
+    clusters = cluster_tree(pruned_root, pruned_root, k=k)
     clusters = finalize_clusters(clusters)
     for cluster in clusters:
         cluster.points = deprune_cluster(cluster.peak.orig_node)
@@ -182,17 +172,8 @@ def get_cluster_metadata(clusters, num_points, k):
 
     return pred_labels, centers, epsilons
 
-def dc_clustering(root, num_points, k=4, min_points=1, norm=2, with_noise=True):
-    # FIXME -- notes for later
-    # 1) Shouldn't do k-means and k-median on pruned trees since the addition of new nodes would mess up the weighting
-    #    It only makes sense for the pruned tree
-    # 2) Using min_points > 1 creates a ton of noise points because our distance measure is max(d(a, b), knn(a), knn(b))??
-    # 2.a) Using min_points = 0 gives some noise points still??
-    # 3) k-median gives TONS of noise points for some reason. In groups that are way too large
-    if norm < 0 or norm == np.inf:
-        clusters = dc_kcenter(root, num_points, k, min_points, with_noise=with_noise)
-    else:
-        clusters = cluster_tree(root, root, k=k, norm=norm)
+def dc_clustering(root, num_points, k=4, min_points=1, with_noise=True):
+    clusters = dc_kcenter(root, num_points, k, min_points, with_noise=with_noise)
 
     return get_cluster_metadata(clusters, num_points, k)
 

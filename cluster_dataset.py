@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll, make_moons
 from sklearn.manifold import MDS
-from sklearn.cluster import DBSCAN, SpectralClustering
+from sklearn.cluster import SpectralClustering
+from DBSCAN import DBSCAN
 from sklearn.metrics import normalized_mutual_info_score as nmi
 from sklearn.decomposition import PCA
 import networkx as nx
@@ -15,6 +16,7 @@ from density_tree import make_tree
 from tree_plotting import plot_embedding
 from cluster_tree import dc_clustering
 from GDR import GradientDR
+from SpectralClustering import get_lambdas, get_sim_mx, run_spectral_clustering
 
 if __name__ == '__main__':
     import argparse
@@ -38,19 +40,11 @@ if __name__ == '__main__':
         help='Dummy variable for compatibility with UMAP/tSNE distance calculation'
     )
     parser.add_argument(
-        '--norm',
-        type=float,
-        default=2,
-        help='Norm to raise distance to when clustering. Negative values are interpreted as inf. norm'
-    )
-    parser.add_argument(
         '--plot-tree',
         action='store_true',
         help='If present, will make a plot of the tree'
     )
     args = parser.parse_args()
-    if args.norm == -1:
-        args.norm = np.inf
 
     # points, labels = get_dataset('synth', num_classes=6, points_per_class=72)
     # points, labels = get_dataset('coil', class_list=np.arange(1, 20), points_per_class=36)
@@ -60,8 +54,8 @@ if __name__ == '__main__':
     #     radii=[0.5, 1.0],
     #     thicknesses=[0.1, 0.1]
     # )
-    points, labels = make_moons(n_samples=400, noise=0.1)
     # points, labels = get_dataset('mnist', num_classes=10, points_per_class=50)
+    points, labels = make_moons(n_samples=400, noise=0.1)
 
     root, dc_dists = make_tree(
         points,
@@ -76,44 +70,42 @@ if __name__ == '__main__':
         num_points=len(labels),
         k=args.k,
         min_points=args.min_pts,
-        norm=args.norm
     )
 
-    embed_points = make_dc_embedding(
-        root,
-        dc_dists,
-        min_points=args.min_pts,
-        n_neighbors=args.n_neighbors
-    )
-
-    # FIXME -- do I do plus or minus here?
-    # In either case, change the eps by a tiny amount so that we don't cut below that
-    # distance in one implementation and above it in another implementation
+    # Change the eps by a tiny amount so that that distance is included in the DBSCAN cuts
     eps = np.max(epsilons[np.where(epsilons > 0)]) + 1e-8
 
-    # spectral = SpectralClustering(n_clusters=args.k).fit(points)
-    dbscan_orig = DBSCAN(eps=eps, min_samples=args.min_pts).fit(points)
-    dbscan_embed = DBSCAN(eps=eps, min_samples=args.min_pts).fit(embed_points)
-    # dbscan_orig = hdbscan.HDBSCAN(approx_min_span_tree=False, min_samples=1).fit(points)
-    # dbscan_embed = hdbscan.HDBSCAN(approx_min_span_tree=False, min_samples=1).fit(embed_points)
+    # DBSCAN*
+    dbscan_orig = DBSCAN(eps=eps, min_pts=args.min_pts, cluster_type='corepoints')
+    dbscan_orig.fit(points)
 
-    dbscan_core_pt_inds = np.where(dbscan_embed.labels_ > -1)
+    dbscan_core_pt_inds = np.where(dbscan_orig.labels_ > -1)
     dc_core_pt_inds = np.where(np.logical_and(pred_labels > -1, dbscan_orig.labels_ > -1))
-    dc_core_pt_inds_embed = np.where(np.logical_and(pred_labels > -1, dbscan_embed.labels_ > -1))
-    print('k-Means cut off epsilons:', epsilons)
-    print('NMI truth vs. dbscan:', nmi(labels, dbscan_orig.labels_))
-    print('NMI truth vs. us:', nmi(labels, pred_labels))
-    # print('NMI spectral vs. us:', nmi(spectral.labels_, pred_labels))
-    print('NMI dbscan vs. us:', nmi(dbscan_orig.labels_[dc_core_pt_inds], pred_labels[dc_core_pt_inds]))
-    print('NMI dbscan vs. dbscan on embedding:', nmi(dbscan_orig.labels_[dbscan_core_pt_inds], dbscan_embed.labels_[dbscan_core_pt_inds]))
-    print('NMI us vs. dbscan on embedding:', nmi(pred_labels[dc_core_pt_inds_embed], dbscan_embed.labels_[dc_core_pt_inds_embed]))
+
+    # Ultrametric Spectral Clustering
+    no_lambdas = get_lambdas(root, eps)
+    dsnenns = get_nearest_neighbors(points, args.n_neighbors, min_points=args.min_pts)
+    sim = get_sim_mx(dsnenns)
+    sc_, sc_labels = run_spectral_clustering(
+        root,
+        sim,
+        dc_dists,
+        eps=eps,
+        it=no_lambdas,
+        min_pts=args.min_pts,
+        n_clusters=args.k,
+        type_="it"
+    )
+
+    print('Epsilon values per clusters', epsilons)
+    print('NMI spectral vs. k-center:', nmi(sc_labels, pred_labels))
+    print('NMI spectral vs. DBSCAN*:', nmi(sc_labels, dbscan_orig.labels_))
+    print('NMI DBSCAN* vs. k-center:', nmi(dbscan_orig.labels_, pred_labels))
 
     plot_points = points
-    if points.shape[1] > 2:
-        plot_points = embed_points
     plot_embedding(
         plot_points,
-        [labels, pred_labels, dbscan_orig.labels_, dbscan_embed.labels_],
-        ['truth', 'us', 'dbscan_original_data', 'dbscan_embedding'],
+        [labels, pred_labels, dbscan_orig.labels_, sc_labels],
+        ['truth', 'k-Center on DC-dists', 'DBSCAN*', 'Ultrametric Spectral Clustering'],
         centers=centers
     )
