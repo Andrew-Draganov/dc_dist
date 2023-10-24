@@ -13,7 +13,7 @@ from sklearn.datasets import make_blobs
 import warnings
 
 from density_tree import make_tree
-from distance_metric import get_nearest_neighbors
+from distance_metric import get_dc_dist_matrix
 from DBSCAN import DBSCAN
 
 
@@ -30,8 +30,7 @@ class SpectralClustering_own(object):
             self.n_vecs = n_vecs
 
     def _calc_kmeans(self, n_cluster, n_vecs):
-        # kmeans = KMeans(n_clusters=n_cluster, n_init='auto') ### <-- Original code
-        kmeans = KMeans(n_clusters=n_cluster, n_init=5) ### <-- Andrew change 
+        kmeans = KMeans(n_clusters=n_cluster, n_init=5)
         kmeans.fit(self.eigenvecs[:, :n_vecs])
         return kmeans
 
@@ -43,12 +42,6 @@ class SpectralClustering_own(object):
         return laplacian_.todense()
 
     def fit(self, affinity_mx, normalized=True):
-        # Call from API
-        # maps = spectral_embedding(affinity, n_components=n_components,
-        #                      eigen_solver=eigen_solver,
-        #                      random_state=random_state,
-        #                      eigen_tol=eigen_tol, drop_first=False)
-
         self.eigenvals, self.eigenvecs, self.eigenvalues_full, self.eigenvecors_full = \
             self.spectral_embedding(affinity_mx,
                                     n_components=self.n_vecs,
@@ -60,12 +53,12 @@ class SpectralClustering_own(object):
     def fit_graph(self, G, normalized=True):
         self.G = G
         self.laplacian = self._get_laplacian(normalized)
-        # self.eigenvals, self.eigenvecs = LA.eigh(self.laplacian)
-        self.eigenvals, self.eigenvecs, self.eigenvalues_full, self.eigenvecors_full = \
-            self.spectral_embedding(self.laplacian,
-                                    n_components=self.n_vecs,
-                                    drop_first=False,
-                                    norm_laplacian=False)
+        self.eigenvals, self.eigenvecs, self.eigenvalues_full, self.eigenvecors_full = self.spectral_embedding(
+            self.laplacian,
+            n_components=self.n_vecs,
+            drop_first=False,
+            norm_laplacian=False
+        )
         self.clustering = self._calc_kmeans(self.n_clusters, self.n_vecs)
 
     def spectral_embedding(self, adjacency, n_components=8, eigen_solver=None,
@@ -145,8 +138,6 @@ class SpectralClustering_own(object):
           Andrew V. Knyazev
           https://doi.org/10.1137%2FS1064827500366124
         """
-        # adjacency = check_symmetric(adjacency)
-
         try:
             from pyamg import smoothed_aggregation_solver
         except ImportError:
@@ -210,9 +201,6 @@ class SpectralClustering_own(object):
                                                which='LM',
                                                tol=eigen_tol,
                                                v0=v0)
-                # lambdas = np.real(lambdas)
-                # diffusion_map = np.real(diffusion_map)
-                # print("Size diffusion map:", diffusion_map.shape)
                 embedding = diffusion_map.T[n_components::-1]
                 if norm_laplacian:
                     embedding = embedding / dd
@@ -224,10 +212,6 @@ class SpectralClustering_own(object):
                 laplacian *= -1
 
         embedding = _deterministic_vector_sign_flip(embedding)
-        # if drop_first:
-        #     return lambdas, embedding[1:n_components].T
-        # else:
-        #     return lambdas, embedding[:n_components].T
         return lambdas[:n_components], embedding[:n_components].T, lambdas, embedding.T
 
 
@@ -286,7 +270,7 @@ def reindex(clustering):
 
 
 def exec_sc(sc_, sim_mx, n_clusters=8):
-    spec = SpectralClustering_own(n_clusters=n_clusters)  # , n_vecs=sim_rescaled.shape[0]-1)
+    spec = SpectralClustering_own(n_clusters=n_clusters)
     spec.fit(sim_mx)
     return spec, spec.clustering.labels_
 
@@ -303,8 +287,7 @@ def exec_it(sc_, root, original_sim_mx, sim_mx, original_dist_mx, dist_mx,
         max_cluster_label = max(clustering.values()) + 1
         counter = Counter(sc_.clustering.labels_)
         for idx, p in enumerate(leaves):
-            # if counter[sc_.clustering.labels_[idx]] < min_samples: ### <-- original code
-            if counter[sc_.clustering.labels_[idx]] < min_pts: ### <-- Andrew change
+            if counter[sc_.clustering.labels_[idx]] < min_pts:
                 clustering[p] = -1
             else:
                 clustering[p] = max_cluster_label + sc_.clustering.labels_[idx]
@@ -349,24 +332,16 @@ def exec_eps(sc_, root, original_sim_mx, sim_mx, original_dist_mx, dist_mx,
     return clustering
 
 
-def get_sim_mx(dsnenns, in_dict=True):
-    e = 0  # 1e-15
-
+def get_sim_mx(dsnenns):
     # get precomputed distances
-    if in_dict:
-        dist_dsne = dsnenns['_all_dists']
-    else:
-        dist_dsne = dsnenns
-    dist_e = dist_dsne + e
+    dist_dsne = dsnenns
+    dist_e = dist_dsne
     # normalized
     norm = dist_dsne / np.linalg.norm(dist_dsne)
     # get similiarity scores
     sim = 1 - norm
     # scale similarity scores to be in range ]0, 1]
-    sim_rescaled = (1 - e) * (sim - np.min(sim)) / (np.max(sim) - np.min(sim)) + e
-
-    # sim_frac = 1 / norm
-    # rescaled = np.max(dist_dsne) - dist_dsne
+    sim_rescaled = (sim - np.min(sim)) / (np.max(sim) - np.min(sim))
 
     return sim
 
@@ -405,7 +380,6 @@ def plot_one_it(sc_labels):
     ax2.set_ylabel("$x_2$")
 
     plt.show()
-    # print(spec.clustering.labels_)
 
 
 def get_lambdas (root, eps_dist):
@@ -433,7 +407,7 @@ if __name__ == '__main__':
                            random_state=666)
 
     # Get distance mx and tree representation
-    dsnenns = get_nearest_neighbors(X, 2, min_points=2)
+    dsnenns = get_dc_dist_matrix(X, 2, min_points=2)
     dsnedist = np.reshape(dsnenns['_all_dists'], -1)
     dist_dsne = dsnenns['_all_dists']
     root_, dc_dist = make_tree(X, y_true, min_points=2, n_neighbors=2)

@@ -1,11 +1,11 @@
 from setuptools import setup
 
 setup(
-    name='DensityDR',
-    version='0.1.0',
-    description='Density-connected dimensionality reduction',
-    author='Anonymous',
-    author_email='anonym@ous.com',
+    name='dc_dist',
+    version='0.2.0',
+    description='Density-Connected Distance Experiments',
+    author='Andrew Draganov',
+    author_email='draganovandrew@cs.au.dk',
     install_requires=[
         'GradientDR==0.1.3.4',
         'tqdm',

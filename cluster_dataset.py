@@ -10,8 +10,7 @@ import networkx as nx
 import hdbscan
 
 from experiment_utils.get_data import get_dataset, make_circles
-from distance_metric import get_nearest_neighbors
-from density_preserving_embeddings import make_dc_embedding
+from distance_metric import get_dc_dist_matrix
 from density_tree import make_tree
 from tree_plotting import plot_embedding
 from cluster_tree import dc_clustering
@@ -84,7 +83,7 @@ if __name__ == '__main__':
 
     # Ultrametric Spectral Clustering
     no_lambdas = get_lambdas(root, eps)
-    dsnenns = get_nearest_neighbors(points, args.n_neighbors, min_points=args.min_pts)
+    dsnenns = get_dc_dist_matrix(points, args.n_neighbors, min_points=args.min_pts)
     sim = get_sim_mx(dsnenns)
     sc_, sc_labels = run_spectral_clustering(
         root,

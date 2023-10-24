@@ -6,7 +6,6 @@ from tqdm import tqdm
 
 from experiment_utils.get_data import get_dataset, make_circles
 from DBSCAN import DBSCAN
-from distance_metric import get_nearest_neighbors
 from density_tree import make_tree
 from cluster_tree import dc_clustering
 

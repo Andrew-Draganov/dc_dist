@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from sklearn.datasets import make_swiss_roll, make_moons
 from sklearn.cluster import DBSCAN
 
-from distance_metric import get_nearest_neighbors
+from distance_metric import get_dc_dist_matrix
 from density_tree import make_tree
 from cluster_tree import dc_clustering
 
@@ -65,11 +65,11 @@ def distance_plot():
     for x in tqdm(range(range_length + 1), total=range_length+1):
         for y in range(range_length + 1):
             augmented_points = np.concatenate([points, np.array([[x, y]])], axis=0)
-            dc_dists = get_nearest_neighbors(
+            dc_dists = get_dc_dist_matrix(
                 augmented_points,
                 n_neighbors=15,
                 min_points=min_pts
-            )['_all_dists']
+            )
 
             star_dists[x, y] = dc_dists[-1, star_pt_index]
             for i, center_ind in enumerate(centers):

@@ -14,7 +14,7 @@ from sklearn.manifold import MDS
 from sklearn.decomposition import PCA
 from sklearn.datasets import make_blobs, fetch_olivetti_faces
 
-from distance_metric import get_nearest_neighbors
+from distance_metric import get_distance_matrix
 from sklearn.metrics.pairwise import euclidean_distances, cosine_distances, manhattan_distances
 from sklearn.cluster import OPTICS
 
@@ -61,7 +61,7 @@ def calcReductionSynth(minPoints, points_all_datasets, dim, distance_metric):
             points = points_all_datasets[j]
             
             if distance_metric == 'ours':
-                distance_matrix = get_nearest_neighbors(points, 15, minPoints)['_all_dists']
+                distance_matrix = get_dc_dist_matrix(points, 15, minPoints)
             if distance_metric == 'cosine':
                 distance_matrix = cosine_distances(points)
             if distance_metric == 'manhattan':
@@ -303,7 +303,7 @@ def calcReductionRealMDS(to_load, points_all_datasets, minPoints, dims, distance
             points = points_all_datasets[j]
             
             if distance_metric == 'ours':
-                distance_matrix = get_nearest_neighbors(points, 15, minPoints)['_all_dists']
+                distance_matrix = get_dc_dist_matrix(points, 15, minPoints)
             if distance_metric == 'cosine':
                 distance_matrix = cosine_distances(points)
             if distance_metric == 'manhattan':

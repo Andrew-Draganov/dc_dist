@@ -207,7 +207,6 @@ def compute_clusterings(dataset, points_original, labels_original, num_clusters,
                     spectral = spectral_object.fit(affinity_matrix)
                     
                     spectral_ari_gt = adjusted_rand_score(labels_gt, spectral.labels_)
-                    print(spectral_ari_gt)
                     clusterings.append(spectral)
                     dimtype_aris.append(spectral_ari_gt)
 

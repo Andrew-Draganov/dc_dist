@@ -1,5 +1,5 @@
 import numpy as np
-from distance_metric import get_nearest_neighbors
+from distance_metric import get_dc_dist_matrix
 from tree_plotting import plot_tree
 import matplotlib.pyplot as plt
 
@@ -78,15 +78,14 @@ def get_inds(all_dists, largest_dist):
     return left_inds, right_inds
 
 def _make_tree(all_dists, labels, point_ids, path=''):
-    # FIXME -- the right way to do this is to build the tree up while we're connecting the components
     largest_dist = np.max(all_dists)
     root = DensityTree(largest_dist)
     root.path = path
-    # FIXME -- this will break if multiple copies of the same point. Need to first check for equal points
+
+    # TODO -- this will break if multiple copies of the same point. Need to first check for equal points
     if largest_dist == 0:
         root.label = labels[0]
         root.point_id = point_ids[0]
-        # FIXME -- do we need to make the leaf node have itself as a child?
         root.children = [root]
         return root
 
@@ -106,12 +105,14 @@ def _make_tree(all_dists, labels, point_ids, path=''):
     return root
 
 def make_tree(points, labels, min_points=1, n_neighbors=15, make_image=False, point_ids=None):
-    dc_dists = get_nearest_neighbors(
+    assert len(points.shape) == 2
+    if len(np.unique(points, axis=0)) < len(points):
+        raise ValueError('Currently not supported to have multiple duplicates of the same point in the dataset')
+    dc_dists = get_dc_dist_matrix(
         points,
         n_neighbors=n_neighbors,
         min_points=min_points
-    )['_all_dists']
-    np.set_printoptions(threshold=np.inf)
+    )
 
     if point_ids is None:
         point_ids = np.arange(int(dc_dists.shape[0]))

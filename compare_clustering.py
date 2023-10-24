@@ -7,7 +7,7 @@ import numpy as np
 
 from DBSCAN import DBSCAN
 from experiment_utils.get_data import get_dataset, make_circles
-from distance_metric import get_nearest_neighbors
+from distance_metric import get_dc_dist_matrix
 from density_tree import make_tree
 from cluster_tree import dc_clustering
 from SpectralClustering import get_lambdas, get_sim_mx, run_spectral_clustering
@@ -70,10 +70,9 @@ def compare_clusterings():
         ############################################
         # Calculate spectral clustering on dc_dist #
         ############################################
-        dsnenns = get_nearest_neighbors(points, 15, min_points=min_pts)
-        dist_dsne = dsnenns['_all_dists']
+        dist_dsne = get_dc_dist_matrix(points, 15, min_points=min_pts)
         no_lambdas = get_lambdas(root, noise_eps)
-        sim = get_sim_mx(dsnenns)
+        sim = get_sim_mx(dist_dsne)
         dc_sc_, dc_sc_labels = run_spectral_clustering(
             root,
             sim,
@@ -89,7 +88,7 @@ def compare_clusterings():
 
         # Calculate spectral clustering
         no_lambdas = get_lambdas(root, noise_eps)
-        sim = get_sim_mx(euc_dist_matrix, in_dict=False)
+        sim = get_sim_mx(euc_dist_matrix)
         euc_mst_sc_, euc_mst_sc_labels = run_spectral_clustering(
             root,
             sim,
@@ -237,11 +236,12 @@ def compare_clusterings():
 
     image_dir = 'scratch'
     os.makedirs(image_dir, exist_ok=True)
-    plt.savefig(
-        os.path.join(image_dir, 'cluster_comparison.pdf'),
-        bbox_inches='tight',
-        pad_inches=0.1
-    )
+    plt.show()
+    # plt.savefig(
+    #     os.path.join(image_dir, 'cluster_comparison.pdf'),
+    #     bbox_inches='tight',
+    #     pad_inches=0.1
+    # )
 
 
 
