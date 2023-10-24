@@ -14,7 +14,7 @@ from sklearn.manifold import MDS
 from sklearn.decomposition import PCA
 from sklearn.datasets import make_blobs, fetch_olivetti_faces
 
-from distance_metric import get_distance_matrix
+from distance_metric import get_dc_dist_matrix
 from sklearn.metrics.pairwise import euclidean_distances, cosine_distances, manhattan_distances
 from sklearn.cluster import OPTICS
 
